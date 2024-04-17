@@ -8,6 +8,7 @@ import (
 	"github.com/logrange/linker"
 	"github.com/solarisdb/perftests/pkg/model"
 	"github.com/solarisdb/perftests/pkg/runner"
+	"github.com/solarisdb/perftests/pkg/runner/solaris"
 	"github.com/solarisdb/perftests/pkg/version"
 
 	"github.com/solarisdb/solaris/golibs/logging"
@@ -34,6 +35,13 @@ func Run(ctx context.Context, cfg *model.Config) error {
 		linker.Component{Value: runner.NewErrorExecutor()},
 
 		linker.Component{Value: testsRunner},
+
+		//solaris
+		linker.Component{Value: solaris.NewMetricsExecutor()},
+		linker.Component{Value: solaris.NewConnectExecutor()},
+		linker.Component{Value: solaris.NewAppendMsgExecutor()},
+		linker.Component{Value: solaris.NewCreateLogExecutor()},
+		linker.Component{Value: solaris.NewDeleteLogExecutor()},
 	)
 	inj.Init(ctx)
 	<-testsRunner.Run(ctx)

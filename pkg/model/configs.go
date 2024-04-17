@@ -13,9 +13,6 @@ type (
 	Config struct {
 		Log LoggingConfig `yaml:"log" mapstructure:"log" json:"log"`
 
-		// Environment defines the environment type: dev/prod
-		//Environment string `yaml:"environment" json:"environment"`
-
 		Tests []Test `yaml:"tests"  json:"tests"`
 	}
 

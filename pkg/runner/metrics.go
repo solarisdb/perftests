@@ -51,6 +51,13 @@ func (s *Scalar[T]) Total() int64 {
 	return s.total.Load().(int64)
 }
 
+func (s *Scalar[T]) Copy() *Scalar[T] {
+	var cp Scalar[T]
+	cp.total.Store(s.total.Load())
+	cp.sum.Store(s.sum.Load())
+	return &cp
+}
+
 func mean[T Number](data []T) float64 {
 	if len(data) == 0 {
 		return 0
