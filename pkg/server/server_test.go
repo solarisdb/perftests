@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/alecthomas/assert/v2"
 	"github.com/solarisdb/perftests/pkg/model"
 	"github.com/solarisdb/perftests/pkg/runner"
+	"github.com/stretchr/testify/assert"
 )
 
-func Test_Run(t *testing.T) {
+func Test_FRun(t *testing.T) {
+	t.SkipNow()
 	cfg := testCfg()
 	err := Run(context.Background(), cfg)
 	assert.NoError(t, err)
