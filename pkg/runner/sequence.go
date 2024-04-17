@@ -111,7 +111,7 @@ func (r *seqScenarioResult) Ctx(ctx context.Context) context.Context {
 		eList := container.CopyMap(ctx.Value(SkippedErrorsMap).(map[string]error))
 		for index, stepRes := range r.results {
 			if stepErr := stepRes.Error(); stepErr != nil {
-				eList[fmt.Sprintf("%s/step[%d]", r.runner.name, index)] = stepErr
+				eList[fmt.Sprintf("%s/step#%d", r.runner.name, index)] = stepErr
 			}
 		}
 		ctx = context.WithValue(ctx, SkippedErrorsMap, eList)
@@ -127,9 +127,9 @@ func (r *seqScenarioResult) Error() error {
 	for index, stepRes := range r.results {
 		if stepRes.Error() != nil {
 			if err != nil {
-				err = fmt.Errorf("%s,\n{failed sequence step index[%d] caused by: %s}", err.Error(), index, stepRes.Error())
+				err = fmt.Errorf("%s,\n{failed sequence step#%d caused by: %s}", err.Error(), index, stepRes.Error())
 			} else {
-				err = fmt.Errorf("{failed sequence step index[%d] caused by: %s}", index, stepRes.Error())
+				err = fmt.Errorf("{failed sequence step#%d caused by: %s}", index, stepRes.Error())
 			}
 		}
 	}

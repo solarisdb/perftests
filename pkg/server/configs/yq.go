@@ -15,8 +15,6 @@ func init() {
 
 func JsonToYaml(json string) ([]byte, error) {
 	encoder := yqlib.NewYamlEncoder(
-		//2,
-		//false,
 		yqlib.NewDefaultYamlPreferences())
 	decoder := yqlib.NewJSONDecoder()
 	yamlResult, err := yqlib.NewStringEvaluator().Evaluate("", json, encoder, decoder)

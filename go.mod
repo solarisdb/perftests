@@ -4,6 +4,7 @@ go 1.22.0
 
 require (
 	dario.cat/mergo v1.0.0
+	github.com/alecthomas/assert/v2 v2.3.0
 	github.com/logrange/linker v0.0.0-20240221031707-899bd9fa7c6c
 	github.com/mikefarah/yq/v4 v4.43.1
 	github.com/solarisdb/solaris v0.23.0
@@ -16,6 +17,7 @@ require (
 require (
 	github.com/a8m/envsubst v1.4.2 // indirect
 	github.com/alecthomas/participle/v2 v2.1.1 // indirect
+	github.com/alecthomas/repr v0.4.0 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/elliotchance/orderedmap v1.5.1 // indirect
 	github.com/fatih/color v1.16.0 // indirect
@@ -23,6 +25,7 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/goccy/go-yaml v1.11.3 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
