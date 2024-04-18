@@ -42,6 +42,7 @@ func Run(ctx context.Context, cfg *model.Config) error {
 		linker.Component{Value: solaris.NewAppendMsgExecutor()},
 		linker.Component{Value: solaris.NewCreateLogExecutor()},
 		linker.Component{Value: solaris.NewDeleteLogExecutor()},
+		linker.Component{Value: solaris.NewQueryMsgsExecutor()},
 	)
 	inj.Init(ctx)
 	<-testsRunner.Run(ctx)

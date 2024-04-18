@@ -26,23 +26,25 @@ type (
 	}
 
 	metricsScenarioResult struct {
-		metricValue *runner.Scalar[int64]
+		metrics map[string]*runner.Scalar[int64]
 	}
 
 	MetricsCfg struct {
-		Cmd MetricsCmd `yaml:"cmd" json:"cmd"`
+		Cmds []MetricsCmd `yaml:"cmds" json:"cmds"`
 	}
 
 	MetricsCmd string
 )
 
 const (
-	metricsAppendTOs = "appendTOs"
+	metricsAppendTOs       = "appendTOs"
+	metricsQueryRecordsTOs = "queryRecordsTOs"
 
 	MetricsRunName = "metrics"
 
-	MetricsInit   MetricsCmd = "init"
-	MetricsAppend MetricsCmd = "append"
+	MetricsInit         MetricsCmd = "init"
+	MetricsAppend       MetricsCmd = "append"
+	MetricsQueryRecords MetricsCmd = "queryRecords"
 )
 
 func NewMetrics(exec *metricsExecutor, prefix string) runner.ScenarioRunner {
@@ -86,23 +88,36 @@ func (r *metrics) run(ctx context.Context, config *model.ScenarioConfig) (doneCh
 		doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to parse scenario config %w", err))
 		return
 	}
-	switch cfg.Cmd {
-	case MetricsInit:
-		doneCh <- &metricsScenarioResult{runner.NewScalar[int64]()}
-	case MetricsAppend:
-		tos, _ := ctx.Value(metricsAppendTOs).(*runner.Scalar[int64])
-		tos = tos.Copy()
-		meanDur := time.Duration(int64(tos.Mean())).Round(time.Millisecond)
-		r.exec.Logger.Infof("Append TOs Metric: total %d, mean %s", tos.Total(), meanDur.String())
-		doneCh <- &metricsScenarioResult{tos}
-	default:
-		doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics command: %s", cfg.Cmd))
+	intMetrics := map[string]*runner.Scalar[int64]{}
+	for _, cmd := range cfg.Cmds {
+		switch cmd {
+		case MetricsInit:
+			intMetrics[metricsAppendTOs] = runner.NewScalar[int64]()
+			intMetrics[metricsQueryRecordsTOs] = runner.NewScalar[int64]()
+		case MetricsAppend:
+			tos, _ := ctx.Value(metricsAppendTOs).(*runner.Scalar[int64])
+			tos = tos.Copy()
+			meanDur := time.Duration(int64(tos.Mean())).Round(time.Millisecond)
+			r.exec.Logger.Infof("Append TOs Metric: total %d, mean %s", tos.Total(), meanDur.String())
+			intMetrics[metricsAppendTOs] = tos
+		case MetricsQueryRecords:
+			tos, _ := ctx.Value(metricsQueryRecordsTOs).(*runner.Scalar[int64])
+			tos = tos.Copy()
+			meanDur := time.Duration(int64(tos.Mean())).Round(time.Millisecond)
+			r.exec.Logger.Infof("Query Records TOs Metric: total %d, mean %s", tos.Total(), meanDur.String())
+			intMetrics[metricsQueryRecordsTOs] = tos
+		default:
+			doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics command: %s", cmd))
+		}
 	}
+	doneCh <- &metricsScenarioResult{metrics: intMetrics}
 	return
 }
 
 func (r *metricsScenarioResult) Ctx(ctx context.Context) context.Context {
-	ctx = context.WithValue(ctx, metricsAppendTOs, r.metricValue)
+	for name, val := range r.metrics {
+		ctx = context.WithValue(ctx, name, val)
+	}
 	return ctx
 }
 
