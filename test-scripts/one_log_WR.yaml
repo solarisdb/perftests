@@ -1,0 +1,69 @@
+log:
+  level: info
+tests:
+  Append 10K messages (1K size) to 1 log then read them:
+    name: Append 10K messages (1K size) to 1 log then read them
+    scenario:
+      name: sequence
+      config:
+        skipErrors: false
+        steps:
+          - name: connect
+            config:
+              address: localhost:50051
+              envVarAddress: PERFTESTS_SOLARIS_ADDRESS
+          - name: metrics
+            config:
+              cmds:
+                - init
+          - name: repeat
+            config:
+              period: ""
+              count: 1
+              action:
+                name: sequence
+                config:
+                  skipErrors: false
+                  steps:
+                    - name: createLog
+                      config:
+                        tags:
+                          logName: foo
+                    - name: repeat
+                      config:
+                        period: ""
+                        count: 1
+                        action:
+                          name: repeat
+                          config:
+                            period: ""
+                            count: 10000
+                            action:
+                              name: solarisAppend
+                              config:
+                                messageSize: 1024
+                                batchSize: 1
+                            executor: sequence
+                            skipErrors: false
+                        executor: parallel
+                        skipErrors: false
+                    - name: repeat
+                      config:
+                        period: ""
+                        count: 1
+                        action:
+                          name: solarisQuery
+                          config:
+                            step: 100
+                            number: -1
+                        executor: parallel
+                        skipErrors: false
+                    - name: deleteLog
+                      config: null
+              executor: parallel
+              skipErrors: false
+          - name: metrics
+            config:
+              cmds:
+                - append
+                - queryRecords

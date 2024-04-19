@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var defaultCfgCmd = &cobra.Command{
-	Use:   "defaultCfg [filename | -] ",
-	Short: "Creates the default config: perftests defaultCfg perftests.yaml",
+var generateCfgCmd = &cobra.Command{
+	Use:   "generateCfg [filename | -] ",
+	Short: "Creates the config: perftests generateCfg perftests.yaml",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 		cfg := server.GetDefaultConfig()

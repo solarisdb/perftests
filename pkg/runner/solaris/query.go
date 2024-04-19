@@ -81,8 +81,9 @@ func (r *queryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (done
 	}
 	if cfg.Number == 0 {
 		cfg.Number = 1
+	} else if cfg.Number == -1 {
+		//ok, it means unlimited
 	}
-
 	clnt, _ := ctx.Value(solarisClnt).(solaris.ServiceClient)
 	if clnt == nil {
 		doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("solaris service not found"))
@@ -98,7 +99,11 @@ func (r *queryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (done
 	metric, _ := ctx.Value(metricsQueryRecordsTOs).(*runner.Scalar[int64])
 
 	fromID := ""
-	for i := 0; i < cfg.Number; i++ {
+	i := 0
+	for {
+		if cfg.Number != -1 && i >= cfg.Number {
+			break
+		}
 		req := &solaris.QueryRecordsRequest{
 			LogIDs:        []string{log},
 			Limit:         cfg.Step,
@@ -117,6 +122,7 @@ func (r *queryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (done
 		if fromID == "" {
 			break
 		}
+		i++
 	}
 
 	doneCh <- runner.NewStaticScenarioResult(ctx, nil)

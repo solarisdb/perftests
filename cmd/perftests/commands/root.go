@@ -2,8 +2,9 @@ package commands
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
@@ -13,7 +14,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.InitDefaultHelpCmd()
 	rootCmd.AddCommand(startCmd)
-	rootCmd.AddCommand(defaultCfgCmd)
+	rootCmd.AddCommand(generateCfgCmd)
 	rootCmd.AddCommand(versionCmd)
 }
 

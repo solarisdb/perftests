@@ -55,11 +55,11 @@ build: fmt-check ## builds the service and the cli client executables and places
 
 .PHONY: run
 run: build ## builds and runs the server locally: `./build/perftests start perftests.yaml`
-	@${BUILD_OUT} defaultCfg perftests.yaml
+	@${BUILD_OUT} generateCfg perftests.yaml
 ifeq (,$(wildcard ./.env))
-	eval "`awk '{print "export " $$0}' ${CFGS_DIR}/local/.env`" ; ${BUILD_OUT} start ${PERFTESTS_SECRET_PATH} perftests.yaml
+	eval "`awk '{print "export " $$0}' ${CFGS_DIR}/local/.env`" ; ${BUILD_OUT} start perftests.yaml
 else
-	eval "`awk '{print "export " $$0}' .env`"; ${BUILD_OUT} start ${PERFTESTS_SECRET_PATH} perftests.yaml
+	eval "`awk '{print "export " $$0}' .env`"; ${BUILD_OUT} start perftests.yaml
 endif
 
 clean: ## clean up, removes the ./build directory

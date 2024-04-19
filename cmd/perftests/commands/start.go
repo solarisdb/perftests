@@ -17,7 +17,6 @@ var startCmd = &cobra.Command{
 	Short: "Starts the service: perftests start {cfg_file_names}...}",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
-		defaultCfg := server.GetDefaultConfig()
 		envVarsCfg, err := configs.LoadFromEnvVars()
 		if err != nil {
 			return err
@@ -35,9 +34,6 @@ var startCmd = &cobra.Command{
 			if err := configs.Merge(appCfg, &fileCfg); err != nil {
 				return err
 			}
-		}
-		if err := configs.Merge(appCfg, defaultCfg); err != nil {
-			return err
 		}
 		mainCtx := context.NewSignalsContext(os.Interrupt, syscall.SIGTERM)
 		return server.Run(mainCtx, appCfg)

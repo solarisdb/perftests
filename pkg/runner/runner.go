@@ -49,7 +49,8 @@ func (t *TestRunner) Run(ctx context.Context) <-chan error {
 	t.Logger.Infof("Start tests")
 	defer close(t.doneCh)
 
-	for i, test := range t.Tests.Tests {
+	i := 1
+	for _, test := range t.Tests.Tests {
 		t.Logger.Infof("Test#%d %q started", i, test.Name)
 		scenarioCfg := test.Scenario
 		scRunner, ok := t.Registry.Get(scenarioCfg.Name)
@@ -68,7 +69,7 @@ func (t *TestRunner) Run(ctx context.Context) <-chan error {
 				t.Logger.Infof("skipped error: %s - %s", runner, skippedError.Error())
 			}
 		}
-
+		i++
 	}
 	t.Logger.Infof("Tests ended")
 	t.doneCh <- nil

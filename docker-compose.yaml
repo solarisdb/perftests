@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  perftests:
+    image: perftests:latest
+    env_file:
+      - docker-compose.env
+    volumes:
+      - scripts:/app/scripts/
+
+volumes:
+  scripts:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: './test-scripts/'

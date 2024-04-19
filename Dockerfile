@@ -8,8 +8,6 @@ RUN apt update && apt -y --no-install-recommends install openssh-client git && \
     mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts && \
     git config --global url."git@github.com:".insteadOf "https://github.com"
 
-RUN go env -w GOPRIVATE="github.com/solarisdb/*"
-
 RUN --mount=type=ssh CGO_ENABLED=0 make all
 
 FROM alpine:3.16.0
@@ -20,4 +18,6 @@ RUN chmod +x /bin/grpc_health_probe
 
 WORKDIR /app
 
+COPY --from=builder /usr/src/build/perftests .
 
+CMD exec /app/perftests start $PERFTEST_CFG_FILES

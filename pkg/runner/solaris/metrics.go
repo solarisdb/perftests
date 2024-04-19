@@ -98,13 +98,15 @@ func (r *metrics) run(ctx context.Context, config *model.ScenarioConfig) (doneCh
 			tos, _ := ctx.Value(metricsAppendTOs).(*runner.Scalar[int64])
 			tos = tos.Copy()
 			meanDur := time.Duration(int64(tos.Mean())).Round(time.Millisecond)
-			r.exec.Logger.Infof("Append TOs Metric: total %d, mean %s", tos.Total(), meanDur.String())
+			sumDur := time.Duration(int64(tos.Sum())).Round(time.Millisecond)
+			r.exec.Logger.Infof("Append TOs Metric: total %d, sum: %s, mean %s", tos.Total(), sumDur.String(), meanDur.String())
 			intMetrics[metricsAppendTOs] = tos
 		case MetricsQueryRecords:
 			tos, _ := ctx.Value(metricsQueryRecordsTOs).(*runner.Scalar[int64])
 			tos = tos.Copy()
 			meanDur := time.Duration(int64(tos.Mean())).Round(time.Millisecond)
-			r.exec.Logger.Infof("Query Records TOs Metric: total %d, mean %s", tos.Total(), meanDur.String())
+			sumDur := time.Duration(int64(tos.Sum())).Round(time.Millisecond)
+			r.exec.Logger.Infof("Query Records TOs Metric: total %d, sum: %s, mean %s", tos.Total(), sumDur.String(), meanDur.String())
 			intMetrics[metricsQueryRecordsTOs] = tos
 		default:
 			doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics command: %s", cmd))

@@ -3,6 +3,7 @@ package solaris
 import (
 	"crypto/tls"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/solarisdb/perftests/pkg/model"
@@ -30,7 +31,8 @@ type (
 	}
 
 	ConnectCfg struct {
-		Address string `yaml:"address" json:"address"`
+		Address       string `yaml:"address" json:"address"`
+		EnvVarAddress string `yaml:"envVarAddress" json:"envVarAddress"`
 	}
 
 	connectScenarioResult struct {
@@ -85,9 +87,24 @@ func (r *connect) run(ctx context.Context, config *model.ScenarioConfig) (doneCh
 		return
 	}
 
-	conn, err := r.dial(cfg.Address)
+	address := cfg.Address
+	if len(cfg.EnvVarAddress) > 0 {
+		rawEnv := os.Environ()
+		for _, v := range rawEnv {
+			parts := strings.SplitN(v, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			if parts[0] == cfg.EnvVarAddress {
+				address = parts[1]
+				break
+			}
+		}
+	}
+
+	conn, err := r.dial(address)
 	if err != nil {
-		doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to dial to address %s: %w", cfg.Address, err))
+		doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to dial to address %s: %w", address, err))
 		return
 	}
 

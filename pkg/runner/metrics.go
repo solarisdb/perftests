@@ -47,6 +47,10 @@ func (s *Scalar[T]) Mean() float64 {
 	return float64(sum) / float64(total)
 }
 
+func (s *Scalar[T]) Sum() T {
+	return s.sum.Load().(T)
+}
+
 func (s *Scalar[T]) Total() int64 {
 	return s.total.Load().(int64)
 }
