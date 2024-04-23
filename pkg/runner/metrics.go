@@ -12,6 +12,7 @@ type (
 		total atomic.Value //int64
 		sum   atomic.Value //T
 	}
+
 	String struct {
 		total atomic.Value //int64
 		value atomic.Value

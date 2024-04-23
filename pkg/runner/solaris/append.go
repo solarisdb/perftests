@@ -33,7 +33,7 @@ type (
 	}
 )
 
-const AppendRunName = "solarisAppend"
+const AppendRunName = "solaris.append"
 
 func NewAppendMsg(exec *appendMsgExecutor, prefix string) runner.ScenarioRunner {
 	return &appendMsg{exec: exec, name: fmt.Sprintf("%s/%s-%d", prefix, exec.Name(), runner.GetRunnerIndex())}

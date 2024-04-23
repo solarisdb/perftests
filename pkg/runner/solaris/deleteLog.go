@@ -29,7 +29,7 @@ type (
 )
 
 const (
-	DeleteLogName = "deleteLog"
+	DeleteLogName = "solaris.deleteLog"
 )
 
 func NewDeleteLog(exec *deleteLogExecutor, prefix string) runner.ScenarioRunner {

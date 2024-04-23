@@ -34,7 +34,7 @@ type (
 
 const (
 	solarisLog    = "solarisLog"
-	CreateLogName = "createLog"
+	CreateLogName = "solaris.createLog"
 )
 
 func NewCreateLog(exec *createLogExecutor, prefix string) runner.ScenarioRunner {

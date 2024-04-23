@@ -6,16 +6,18 @@ import (
 
 	"github.com/solarisdb/perftests/pkg/model"
 	"github.com/solarisdb/perftests/pkg/runner"
+	"github.com/solarisdb/perftests/pkg/runner/cluster"
 	"github.com/solarisdb/perftests/pkg/runner/solaris"
 )
 
 var defaultAddress = "localhost:50051"
 var defaultEnvVarAddress = "PERFTESTS_SOLARIS_ADDRESS"
+var defaultEnvRunID = "PERFTESTS_RUN_ID"
 
 func GetDefaultConfig() *model.Config {
 	// one appender writes to one log 10000 messages by 1K and then
 	// one reader reads the log
-	test := appendToLogsThenQuery(defaultAddress, defaultEnvVarAddress, 1, 1, 10000, 1, int(math.Pow(float64(2), float64(10))), 1, 100, -1)
+	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, 1, 1, 100, 1, int(math.Pow(float64(2), float64(10))), 1, 100, -1)
 	return &model.Config{
 		Log: model.LoggingConfig{Level: "info"},
 		Tests: map[string]model.Test{
@@ -32,69 +34,107 @@ func GetDefaultConfig() *model.Config {
 // logReaders - how many readers to one log work concurrently
 // queryStep -  how many records are read on one Query call
 // queriesNumber - how many Query() will be called for one log
-func appendToLogsThenQuery(svcAddress, envVarAddress string, concurrentLogs, writersToLog, appendsToLog, batchSize, msgSize int,
+func appendToLogsThenQueryTest(runID, svcAddress, envVarAddress string, concurrentLogs, writersToLog, appendsToLog, batchSize, msgSize int,
 	logReaders, queryStep, queriesNumber int) *model.Test {
+	scenario := appendToLogsThenQueryScenario(svcAddress, envVarAddress, concurrentLogs, writersToLog, appendsToLog, batchSize, msgSize,
+		logReaders, queryStep, queriesNumber)
 	return &model.Test{
-		Name: fmt.Sprintf("Append to %d logs then read it", concurrentLogs),
-		Scenario: model.Scenario{
-			Name: runner.SequenceRunName,
-			Config: model.ToScenarioConfig(&runner.ParallelCfg{
-				Steps: []model.Scenario{
-					// connect to solaris
-					{
-						Name: solaris.ConnectName,
-						Config: model.ToScenarioConfig(&solaris.ConnectCfg{
-							Address:       svcAddress,
-							EnvVarAddress: envVarAddress,
-						}),
-					},
-					// init metrics
-					{
-						Name: solaris.MetricsRunName,
-						Config: model.ToScenarioConfig(&solaris.MetricsCfg{
-							Cmds: []solaris.MetricsCmd{solaris.MetricsInit},
-						}),
-					},
-					// append to 'concurrentLogs' number of logs in parallel, each appender adds 100 messages in parallel
-					{
-						Name: runner.RepeatRunName,
-						Config: model.ToScenarioConfig(&runner.RepeatCfg{
-							Count:    concurrentLogs,
-							Executor: runner.ParallelRunName,
-							Action: model.Scenario{
-								Name: runner.SequenceRunName,
-								Config: model.ToScenarioConfig(&runner.SequenceCfg{
-									Steps: []model.Scenario{
-										// create log
-										{
-											Name: solaris.CreateLogName,
-											Config: model.ToScenarioConfig(&solaris.CreateLogCfg{
-												Tags: map[string]string{"logName": "foo"},
-											}),
-										},
-										// start 'writersToLog' concurrent writers
-										writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize),
-										// start 'readers' concurrent readers
-										readConcurrently(logReaders, queryStep, queriesNumber),
-										// delete log
-										{
-											Name: solaris.DeleteLogName,
-										},
-									},
-								}),
-							},
-						}),
-					},
-					// trace append metrics
-					{
-						Name: solaris.MetricsRunName,
-						Config: model.ToScenarioConfig(&solaris.MetricsCfg{
-							Cmds: []solaris.MetricsCmd{solaris.MetricsAppend, solaris.MetricsQueryRecords},
-						}),
-					},
+		Name:     fmt.Sprintf("Append to %d logs then read it", concurrentLogs),
+		Scenario: *clusterRun(runID, svcAddress, envVarAddress, scenario),
+	}
+}
+
+func clusterRun(runID, svcAddress, envVarAddress string, wrappedScenario *model.Scenario) *model.Scenario {
+	return &model.Scenario{
+		Name: runner.SequenceRunName,
+		Config: model.ToScenarioConfig(&runner.SequenceCfg{
+			Steps: []model.Scenario{
+				// connect to cluster, add node
+				{
+					Name: cluster.ConnectName,
+					Config: model.ToScenarioConfig(&cluster.ConnectCfg{
+						Address:       svcAddress,
+						EnvVarAddress: envVarAddress,
+						EnvRunID:      runID,
+					}),
 				},
-			}),
-		},
+				*wrappedScenario,
+				// finish and wait other cluster nodes
+				{
+					Name: cluster.FinishName,
+					Config: model.ToScenarioConfig(&cluster.FinishCfg{
+						Await: true,
+					}),
+				},
+				// delete cluster
+				{
+					Name: cluster.DeleteClusterName,
+				},
+			},
+		}),
+	}
+}
+
+func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentLogs, writersToLog, appendsToLog, batchSize, msgSize int,
+	logReaders, queryStep, queriesNumber int) *model.Scenario {
+	return &model.Scenario{
+		Name: runner.SequenceRunName,
+		Config: model.ToScenarioConfig(&runner.SequenceCfg{
+			Steps: []model.Scenario{
+				// connect to solaris
+				{
+					Name: solaris.ConnectName,
+					Config: model.ToScenarioConfig(&solaris.ConnectCfg{
+						Address:       svcAddress,
+						EnvVarAddress: envVarAddress,
+					}),
+				},
+				// init metrics
+				{
+					Name: solaris.MetricsRunName,
+					Config: model.ToScenarioConfig(&solaris.MetricsCfg{
+						Cmds: []solaris.MetricsCmd{solaris.MetricsInit},
+					}),
+				},
+				// append to 'concurrentLogs' number of logs in parallel, each appender adds 100 messages in parallel
+				{
+					Name: runner.RepeatRunName,
+					Config: model.ToScenarioConfig(&runner.RepeatCfg{
+						Count:    concurrentLogs,
+						Executor: runner.ParallelRunName,
+						Action: model.Scenario{
+							Name: runner.SequenceRunName,
+							Config: model.ToScenarioConfig(&runner.SequenceCfg{
+								Steps: []model.Scenario{
+									// create log
+									{
+										Name: solaris.CreateLogName,
+										Config: model.ToScenarioConfig(&solaris.CreateLogCfg{
+											Tags: map[string]string{"logName": "foo"},
+										}),
+									},
+									// start 'writersToLog' concurrent writers
+									writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize),
+									// start 'readers' concurrent readers
+									readConcurrently(logReaders, queryStep, queriesNumber),
+									// delete log
+									{
+										Name: solaris.DeleteLogName,
+									},
+								},
+							}),
+						},
+					}),
+				},
+				// trace append metrics
+				{
+					Name: solaris.MetricsRunName,
+					Config: model.ToScenarioConfig(&solaris.MetricsCfg{
+						Cmds: []solaris.MetricsCmd{solaris.MetricsAppend, solaris.MetricsQueryRecords},
+					}),
+				},
+			},
+		}),
 	}
 }
 

@@ -32,7 +32,7 @@ type (
 	}
 )
 
-const QueryMsgsRunName = "solarisQuery"
+const QueryMsgsRunName = "solaris.queryMsgs"
 const defaultQueryRecordsLimit = 100
 
 func NewQueryMsgs(exec *queryMsgsExecutor, prefix string) runner.ScenarioRunner {
