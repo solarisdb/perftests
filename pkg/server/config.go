@@ -17,7 +17,7 @@ var defaultEnvRunID = "PERFTESTS_RUN_ID"
 func GetDefaultConfig() *model.Config {
 	// one appender writes to one log 10000 messages by 1K and then
 	// one reader reads the log
-	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, 1, 1, 100, 1, int(math.Pow(float64(2), float64(10))), 1, 100, -1)
+	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, 1, 1, 10000, 1, int(math.Pow(float64(2), float64(10))), 1, 100, -1)
 	return &model.Config{
 		Log: model.LoggingConfig{Level: "info"},
 		Tests: map[string]model.Test{

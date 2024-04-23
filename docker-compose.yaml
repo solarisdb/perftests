@@ -1,6 +1,12 @@
 version: "3.8"
 services:
-  perftests:
+  perftests_1:
+    image: perftests:latest
+    env_file:
+      - docker-compose.env
+    volumes:
+      - scripts:/app/scripts/
+  perftests_2:
     image: perftests:latest
     env_file:
       - docker-compose.env

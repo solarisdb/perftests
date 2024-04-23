@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"strings"
+	"time"
 
 	cluster2 "github.com/solarisdb/perftests/pkg/cluster"
 	solarCluster "github.com/solarisdb/perftests/pkg/cluster/solaris"
@@ -112,6 +114,7 @@ func (r *connect) run(ctx context.Context, config *model.ScenarioConfig) (doneCh
 		return
 	}
 
+	time.Sleep(time.Millisecond * time.Duration(rand.IntN(3000)))
 	cluster, err := solarCluster.NewCluster(ctx, runID, solaris.NewServiceClient(conn))
 	if err != nil {
 		doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to create cluster %v: %w", cluster, err))

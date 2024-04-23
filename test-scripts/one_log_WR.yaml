@@ -1,69 +1,83 @@
 log:
   level: info
 tests:
-  Append 10K messages (1K size) to 1 log then read them:
-    name: Append 10K messages (1K size) to 1 log then read them
+  Append to 1 logs then read it:
+    name: Append to 1 logs then read it
     scenario:
       name: sequence
       config:
         skipErrors: false
         steps:
-          - name: connect
+          - name: cluster.connect
             config:
               address: localhost:50051
               envVarAddress: PERFTESTS_SOLARIS_ADDRESS
-          - name: metrics
+              envRunID: PERFTESTS_RUN_ID
+          - name: sequence
             config:
-              cmds:
-                - init
-          - name: repeat
-            config:
-              period: ""
-              count: 1
-              action:
-                name: sequence
-                config:
-                  skipErrors: false
-                  steps:
-                    - name: createLog
-                      config:
-                        tags:
-                          logName: foo
-                    - name: repeat
-                      config:
-                        period: ""
-                        count: 1
-                        action:
-                          name: repeat
-                          config:
-                            period: ""
-                            count: 10000
-                            action:
-                              name: solarisAppend
-                              config:
-                                messageSize: 1024
-                                batchSize: 1
-                            executor: sequence
-                            skipErrors: false
-                        executor: parallel
-                        skipErrors: false
-                    - name: repeat
-                      config:
-                        period: ""
-                        count: 1
-                        action:
-                          name: solarisQuery
-                          config:
-                            step: 100
-                            number: -1
-                        executor: parallel
-                        skipErrors: false
-                    - name: deleteLog
-                      config: null
-              executor: parallel
               skipErrors: false
-          - name: metrics
+              steps:
+                - name: solaris.connect
+                  config:
+                    address: localhost:50051
+                    envVarAddress: PERFTESTS_SOLARIS_ADDRESS
+                - name: solaris.metrics
+                  config:
+                    cmds:
+                      - init
+                - name: repeat
+                  config:
+                    period: ""
+                    count: 1
+                    action:
+                      name: sequence
+                      config:
+                        skipErrors: false
+                        steps:
+                          - name: solaris.createLog
+                            config:
+                              tags:
+                                logName: foo
+                          - name: repeat
+                            config:
+                              period: ""
+                              count: 1
+                              action:
+                                name: repeat
+                                config:
+                                  period: ""
+                                  count: 10000
+                                  action:
+                                    name: solaris.append
+                                    config:
+                                      messageSize: 1024
+                                      batchSize: 1
+                                  executor: sequence
+                                  skipErrors: false
+                              executor: parallel
+                              skipErrors: false
+                          - name: repeat
+                            config:
+                              period: ""
+                              count: 1
+                              action:
+                                name: solaris.queryMsgs
+                                config:
+                                  step: 100
+                                  number: -1
+                              executor: parallel
+                              skipErrors: false
+                          - name: solaris.deleteLog
+                            config: null
+                    executor: parallel
+                    skipErrors: false
+                - name: solaris.metrics
+                  config:
+                    cmds:
+                      - append
+                      - queryRecords
+          - name: cluster.finish
             config:
-              cmds:
-                - append
-                - queryRecords
+              await: true
+          - name: cluster.delete
+            config: null
