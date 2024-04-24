@@ -2,9 +2,11 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	cluster2 "github.com/solarisdb/perftests/pkg/cluster"
+	"github.com/solarisdb/perftests/pkg/metrics"
 	"github.com/solarisdb/perftests/pkg/model"
 	"github.com/solarisdb/perftests/pkg/runner"
 	"github.com/solarisdb/solaris/golibs/errors"
@@ -24,12 +26,28 @@ type (
 	}
 
 	FinishCfg struct {
-		Await bool `yaml:"await,omitempty" json:"await,omitempty"`
+		Metrics map[runner.MetricsType][]string `yaml:"metrics,omitempty" json:"metrics,omitempty"`
+		Await   bool                            `yaml:"await,omitempty" json:"await,omitempty"`
+	}
+
+	nodeResult struct {
+		Status  string                       `json:"status" yaml:"status"`
+		Metrics map[string]typedMetricResult `json:"metrics,omitempty" yaml:"metrics,omitempty"`
+	}
+
+	typedMetricResult struct {
+		Type   runner.MetricsType `json:"type" yaml:"type"`
+		Result *metricResult      `json:"result" yaml:"result"`
+	}
+
+	metricResult struct {
+		union json.RawMessage
 	}
 )
 
 const (
 	FinishName = "cluster.finish"
+	statusOK   = "OK"
 )
 
 func NewFinish(exec *finishExecutor, prefix string) runner.ScenarioRunner {
@@ -80,7 +98,43 @@ func (r *finish) run(ctx context.Context, config *model.ScenarioConfig) (doneCh 
 		return
 	}
 
-	_ = nodeClnt.Finish(ctx, "OK")
+	var myResult nodeResult
+	myResult.Status = statusOK
+	myResult.Metrics = make(map[string]typedMetricResult)
+	for mType, mNames := range cfg.Metrics {
+		for _, mName := range mNames {
+			switch mType {
+			case runner.DURATION:
+				if metric, ok := runner.GetDurationMetric(ctx, mName); ok {
+					metric = metric.Copy()
+					mResult := metrics.GetDurationMetricResult(metric)
+					var mr typedMetricResult
+					_ = mr.ToDuration(mResult)
+					myResult.Metrics[mName] = mr
+				}
+			case runner.INT:
+				if metric, ok := runner.GetIntMetric(ctx, mName); ok {
+					metric = metric.Copy()
+					mResult := metrics.GetIntMetricResult(metric)
+					var mr typedMetricResult
+					_ = mr.ToInt(mResult)
+					myResult.Metrics[mName] = mr
+				}
+			case runner.STRING:
+				if metric, ok := runner.GetStringMetric(ctx, mName); ok {
+					metric = metric.Copy()
+					mResult := metrics.GetStringMetricResult(metric)
+					var mr typedMetricResult
+					_ = mr.ToString(mResult)
+					myResult.Metrics[mName] = mr
+				}
+			default:
+				doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics type: %d", mType))
+			}
+		}
+	}
+	plResult, _ := json.Marshal(myResult)
+	_ = nodeClnt.Finish(ctx, plResult)
 
 	cluster, _ := ctx.Value(clusterClnt).(cluster2.Cluster)
 	if cluster == nil {
@@ -94,16 +148,140 @@ func (r *finish) run(ctx context.Context, config *model.ScenarioConfig) (doneCh 
 			doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to read cluster nodes %w", err))
 			return
 		}
+		results := make([]any, 0, len(nodes))
+		var passed int
+		allMetrics := make(map[string]any)
+		r.exec.Logger.Debugf("// --------------------------------------------------")
 		for _, node := range nodes {
 			res, err := node.Result(ctx)
 			if err != nil {
-				r.exec.Logger.Errorf("%v failed", node)
+				r.exec.Logger.Errorf("%v failed to read result", node)
 				continue
 			}
-			r.exec.Logger.Infof("%v result: %s", node, res)
+			var result nodeResult
+			results = append(results, result)
+			_ = json.Unmarshal(res, &result)
+			if result.Status == statusOK {
+				passed++
+			}
+			nodeMetrics := make(map[string]any)
+			for mName, tmr := range result.Metrics {
+				//if _, ok := nodeMetrics[mName]; !ok {
+				//	nodeMetrics[mName] = make(map[runner.MetricsType]any)
+				//}
+				//if _, ok := allMetrics[mName]; !ok {
+				//	allMetrics[mName] = make(map[runner.MetricsType]any)
+				//}
+				switch tmr.Type {
+				case runner.DURATION:
+					nodeM, _ := tmr.Result.AsDuration()
+					nodeMetrics[mName] = nodeM
+					if allM, ok := allMetrics[mName]; ok {
+						dAllM := allM.(metrics.DurationMetricResult)
+						allMetrics[mName] = dAllM.Merge(nodeM)
+					} else {
+						allMetrics[mName] = nodeM
+					}
+				case runner.INT:
+					nodeM, _ := tmr.Result.AsInt()
+					nodeMetrics[mName] = nodeM
+					if allM, ok := allMetrics[mName]; ok {
+						dAllM := allM.(metrics.IntMetricResult)
+						allMetrics[mName] = dAllM.Merge(nodeM)
+					} else {
+						allMetrics[mName] = nodeM
+					}
+				case runner.STRING:
+					nodeM, _ := tmr.Result.AsString()
+					nodeMetrics[mName] = nodeM
+					if allM, ok := allMetrics[mName]; ok {
+						dAllM := allM.(metrics.StringMetricResult)
+						allMetrics[mName] = dAllM.Merge(nodeM)
+					} else {
+						allMetrics[mName] = nodeM
+					}
+				default:
+				}
+			}
+			r.exec.Logger.Debugf("// %s status: %s, metrics: %v", node, result.Status, nodeMetrics)
 		}
+		r.exec.Logger.Infof("// --------------------------------------------------")
+		r.exec.Logger.Infof("// Total nodes: %d, Passed: %d, Failed: %d", len(nodes), passed, len(results)-passed)
+		r.exec.Logger.Infof("// Total metrics:")
+		for mName, res := range allMetrics {
+			r.exec.Logger.Infof("//	- %s: %v", mName, res)
+		}
+		r.exec.Logger.Infof("// --------------------------------------------------")
 	}
 
 	doneCh <- runner.NewStaticScenarioResult(ctx, nil)
 	return
+}
+
+func (mr metricResult) MarshalJSON() ([]byte, error) {
+	b, err := mr.union.MarshalJSON()
+	return b, err
+}
+
+func (mr *metricResult) UnmarshalJSON(b []byte) error {
+	err := mr.union.UnmarshalJSON(b)
+	return err
+}
+
+func (r *typedMetricResult) ToDuration(v metrics.DurationMetricResult) error {
+	var result metricResult
+	if err := result.FromDuraion(v); err != nil {
+		return err
+	}
+	r.Type = runner.DURATION
+	r.Result = &result
+	return nil
+}
+func (r *typedMetricResult) ToInt(v metrics.IntMetricResult) error {
+	var result metricResult
+	if err := result.FromInt(v); err != nil {
+		return err
+	}
+	r.Type = runner.INT
+	r.Result = &result
+	return nil
+}
+func (r *typedMetricResult) ToString(v metrics.StringMetricResult) error {
+	var result metricResult
+	if err := result.FromString(v); err != nil {
+		return err
+	}
+	r.Type = runner.STRING
+	r.Result = &result
+	return nil
+}
+func (mr *metricResult) FromDuraion(v metrics.DurationMetricResult) error {
+	b, err := json.Marshal(v)
+	mr.union = b
+	return err
+}
+func (mr *metricResult) FromInt(v metrics.IntMetricResult) error {
+	b, err := json.Marshal(v)
+	mr.union = b
+	return err
+}
+func (mr *metricResult) FromString(v metrics.StringMetricResult) error {
+	b, err := json.Marshal(v)
+	mr.union = b
+	return err
+}
+func (mr metricResult) AsDuration() (metrics.DurationMetricResult, error) {
+	var body metrics.DurationMetricResult
+	err := json.Unmarshal(mr.union, &body)
+	return body, err
+}
+func (mr metricResult) AsInt() (metrics.IntMetricResult, error) {
+	var body metrics.IntMetricResult
+	err := json.Unmarshal(mr.union, &body)
+	return body, err
+}
+func (mr metricResult) AsString() (metrics.StringMetricResult, error) {
+	var body metrics.StringMetricResult
+	err := json.Unmarshal(mr.union, &body)
+	return body, err
 }

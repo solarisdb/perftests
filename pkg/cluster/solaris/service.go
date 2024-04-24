@@ -159,12 +159,12 @@ func newNode(ctx context.Context, nodeID string, cluster *solarCluster) (*solari
 	return sc, err
 }
 
-func (s *solarisNode) Finish(ctx context.Context, result cluster.Result) error {
-	nodeRec, _ := json.Marshal(nodeResult{Result: string(result)})
+func (s *solarisNode) Finish(ctx context.Context, result []byte) error {
+	//nodeRec, _ := json.Marshal(nodeResult{Result: string(result)})
 	_, err := s.cluster.solaris.AppendRecords(ctx, &solaris.AppendRecordsRequest{
 		LogID: s.nodeLogID,
 		Records: []*solaris.Record{
-			{Payload: nodeRec},
+			{Payload: result},
 		},
 	})
 	return err
@@ -177,8 +177,8 @@ func (s *solarisNode) Delete(ctx context.Context) error {
 	return err
 }
 
-func (s *solarisNode) Result(ctx context.Context) (cluster.Result, error) {
-	var node nodeResult
+func (s *solarisNode) Result(ctx context.Context) ([]byte, error) {
+	//var node nodeResult
 	fromID := ""
 	for {
 		req := &solaris.QueryRecordsRequest{
@@ -188,17 +188,17 @@ func (s *solarisNode) Result(ctx context.Context) (cluster.Result, error) {
 		}
 		res, err := s.cluster.solaris.QueryRecords(ctx, req)
 		if err != nil {
-			return *new(cluster.Result), fmt.Errorf("failed to query node result: %w", err)
+			return nil, fmt.Errorf("failed to query node result: %w", err)
 		}
 		if len(res.Records) == 0 {
 			time.Sleep(5 * time.Second)
 			continue
 		}
 		rec := res.Records[0]
-		_ = json.Unmarshal(rec.Payload, &node)
-		break
+		//_ = json.Unmarshal(rec.Payload, &node)
+		return rec.Payload, nil
 	}
-	return cluster.Result(node.Result), nil
+	//return cluster.Result(node.Result), nil
 }
 
 func (s *solarisNode) getOrCreateLog(ctx context.Context) (string, error) {

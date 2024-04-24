@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/solarisdb/perftests/pkg/metrics"
 	"github.com/solarisdb/perftests/pkg/model"
-	metrics2 "github.com/solarisdb/perftests/pkg/runner/metrics"
 	"github.com/solarisdb/solaris/golibs/errors"
 	"github.com/solarisdb/solaris/golibs/logging"
 )
@@ -82,15 +82,28 @@ func (r *metricsFix) run(ctx context.Context, config *model.ScenarioConfig) (don
 		mValue, _ := ctx.Value(mName).(MetricValue)
 		switch mValue.Type {
 		case INT:
-			intMetric := mValue.Value.(*metrics2.Scalar[int64]).Copy()
-			meanDur := time.Duration(int64(intMetric.Mean())).Round(time.Millisecond)
-			sumDur := time.Duration(int64(intMetric.Sum())).Round(time.Millisecond)
-			r.exec.Logger.Infof("Metric %q: total %d, sum %s, mean %s", mName, intMetric.Total(), sumDur.String(), meanDur.String())
-			result[mName] = MetricValue{Value: intMetric, Type: mValue.Type}
+			if metric, ok := GetIntMetric(ctx, mName); ok {
+				metric = metric.Copy()
+				mResult := metrics.GetIntMetricResult(metric)
+				r.exec.Logger.Infof("Metric %q: total %d, sum %d, mean %d", mName, mResult.Total, mResult.Sum, mResult.Mean)
+				result[mName] = MetricValue{Value: metric, Type: mValue.Type}
+			}
+		case DURATION:
+			if metric, ok := GetDurationMetric(ctx, mName); ok {
+				metric = metric.Copy()
+				mResult := metrics.GetDurationMetricResult(metric)
+				meanDur := mResult.Mean.Round(time.Millisecond)
+				sumDur := mResult.Sum.Round(time.Millisecond)
+				r.exec.Logger.Infof("Metric %q: total %d, sum %s, mean %s", mName, mResult.Total, sumDur.String(), meanDur.String())
+				result[mName] = MetricValue{Value: metric, Type: mValue.Type}
+			}
 		case STRING:
-			strMetric := mValue.Value.(*metrics2.String).Copy()
-			r.exec.Logger.Infof("Metric %q: total %d, value %s", mName, strMetric.Total(), strMetric.String())
-			result[mName] = MetricValue{Value: strMetric, Type: mValue.Type}
+			if metric, ok := GetStringMetric(ctx, mName); ok {
+				metric = metric.Copy()
+				mResult := metrics.GetStringMetricResult(metric)
+				r.exec.Logger.Infof("Metric %q: total %d, value %s", mName, mResult.Total, mResult.Sum)
+				result[mName] = MetricValue{Value: metric, Type: mValue.Type}
+			}
 		default:
 			doneCh <- NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics type: %d", mValue.Type))
 		}

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	metrics2 "github.com/solarisdb/perftests/pkg/metrics"
 	"github.com/solarisdb/perftests/pkg/model"
-	metrics2 "github.com/solarisdb/perftests/pkg/runner/metrics"
 	"github.com/solarisdb/solaris/golibs/errors"
 	"github.com/solarisdb/solaris/golibs/logging"
 )
@@ -42,6 +42,7 @@ const (
 	MetricsCreateRunName             = "metricsCreate"
 	INT                  MetricsType = "INT"
 	STRING               MetricsType = "STRING"
+	DURATION             MetricsType = "DURATION"
 )
 
 func NewMetricsCreate(exec *metricsCreateExecutor, prefix string) ScenarioRunner {
@@ -89,7 +90,7 @@ func (r *metricsCreate) run(ctx context.Context, config *model.ScenarioConfig) (
 	for mType, mNames := range cfg.Metrics {
 		for _, mName := range mNames {
 			switch mType {
-			case INT:
+			case INT, DURATION:
 				toCreateMetrics[mName] = MetricValue{Value: metrics2.NewScalar[int64](), Type: mType}
 			case STRING:
 				toCreateMetrics[mName] = MetricValue{Value: metrics2.NewString(), Type: mType}
@@ -100,6 +101,42 @@ func (r *metricsCreate) run(ctx context.Context, config *model.ScenarioConfig) (
 	}
 	doneCh <- &metricsCreateScenarioResult{metrics: toCreateMetrics}
 	return
+}
+
+func GetIntMetric(ctx context.Context, name string) (*metrics2.Scalar[int64], bool) {
+	var metric *metrics2.Scalar[int64]
+	if len(name) > 0 {
+		if mv, ok := ctx.Value(name).(MetricValue); ok && mv.Type == INT {
+			if metric, ok = mv.Value.(*metrics2.Scalar[int64]); ok {
+				return metric, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func GetDurationMetric(ctx context.Context, name string) (*metrics2.Scalar[int64], bool) {
+	var metric *metrics2.Scalar[int64]
+	if len(name) > 0 {
+		if mv, ok := ctx.Value(name).(MetricValue); ok && mv.Type == DURATION {
+			if metric, ok = mv.Value.(*metrics2.Scalar[int64]); ok {
+				return metric, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func GetStringMetric(ctx context.Context, name string) (*metrics2.String, bool) {
+	var metric *metrics2.String
+	if len(name) > 0 {
+		if mv, ok := ctx.Value(name).(MetricValue); ok && mv.Type == STRING {
+			if metric, ok = mv.Value.(*metrics2.String); ok {
+				return metric, true
+			}
+		}
+	}
+	return nil, false
 }
 
 func (r *metricsCreateScenarioResult) Ctx(ctx context.Context) context.Context {

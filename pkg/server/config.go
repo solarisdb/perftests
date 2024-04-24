@@ -14,10 +14,13 @@ var defaultAddress = "localhost:50051"
 var defaultEnvVarAddress = "PERFTESTS_SOLARIS_ADDRESS"
 var defaultEnvRunID = "PERFTESTS_RUN_ID"
 
+const appendToMetricName = "AppendTimeout"
+const queryToMetricName = "QueryTimeout"
+
 func GetDefaultConfig() *model.Config {
 	// one appender writes to one log 10000 messages by 1K and then
 	// one reader reads the log
-	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, 1, 1, 10000, 1, int(math.Pow(float64(2), float64(10))), 1, 100, -1)
+	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, 1, 1, 100, 1, int(math.Pow(float64(2), float64(10))), 1, 100, -1)
 	return &model.Config{
 		Log: model.LoggingConfig{Level: "info"},
 		Tests: map[string]model.Test{
@@ -64,6 +67,9 @@ func clusterRun(runID, svcAddress, envVarAddress string, wrappedScenario *model.
 					Name: cluster.FinishName,
 					Config: model.ToScenarioConfig(&cluster.FinishCfg{
 						Await: true,
+						Metrics: map[runner.MetricsType][]string{
+							runner.DURATION: {appendToMetricName, queryToMetricName},
+						},
 					}),
 				},
 				// delete cluster
@@ -77,8 +83,8 @@ func clusterRun(runID, svcAddress, envVarAddress string, wrappedScenario *model.
 
 func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentLogs, writersToLog, appendsToLog, batchSize, msgSize int,
 	logReaders, queryStep, queriesNumber int) *model.Scenario {
-	appendMetricName := "AppendTimeout"
-	queryMetricName := "QueryTimeout"
+	appendMetricName := appendToMetricName
+	queryMetricName := queryToMetricName
 	return &model.Scenario{
 		Name: runner.SequenceRunName,
 		Config: model.ToScenarioConfig(&runner.SequenceCfg{
@@ -96,7 +102,7 @@ func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentL
 					Name: runner.MetricsCreateRunName,
 					Config: model.ToScenarioConfig(&runner.MetricsCreateCfg{
 						Metrics: map[runner.MetricsType][]string{
-							runner.INT: {appendMetricName, queryMetricName},
+							runner.DURATION: {appendMetricName, queryMetricName},
 						},
 					}),
 				},

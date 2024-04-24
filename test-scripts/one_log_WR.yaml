@@ -22,7 +22,7 @@ tests:
                 - name: metricsCreate
                   config:
                     metrics:
-                      INT:
+                      DURATION:
                         - AppendTimeout
                         - QueryTimeout
                 - name: repeat
@@ -66,5 +66,9 @@ tests:
                       - QueryTimeout
           - name: cluster.finish
             config:
+              metrics:
+                DURATION:
+                  - AppendTimeout
+                  - QueryTimeout
               await: true
           - name: cluster.delete

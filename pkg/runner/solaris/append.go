@@ -6,7 +6,6 @@ import (
 
 	"github.com/solarisdb/perftests/pkg/model"
 	"github.com/solarisdb/perftests/pkg/runner"
-	metrics2 "github.com/solarisdb/perftests/pkg/runner/metrics"
 	"github.com/solarisdb/solaris/api/gen/solaris/v1"
 	"github.com/solarisdb/solaris/golibs/container"
 	"github.com/solarisdb/solaris/golibs/errors"
@@ -104,13 +103,7 @@ func (r *appendMsg) run(ctx context.Context, config *model.ScenarioConfig) (done
 		return
 	}
 
-	var metric *metrics2.Scalar[int64]
-	if len(cfg.TimeoutMetricName) > 0 {
-		if mv, ok := ctx.Value(cfg.TimeoutMetricName).(runner.MetricValue); ok && mv.Type == runner.INT {
-			metric, _ = mv.Value.(*metrics2.Scalar[int64])
-		}
-	}
-
+	metric, _ := runner.GetDurationMetric(ctx, cfg.TimeoutMetricName)
 	req := &solaris.AppendRecordsRequest{
 		LogID:   log,
 		Records: records,
