@@ -6,6 +6,7 @@ import (
 
 	"github.com/solarisdb/perftests/pkg/model"
 	"github.com/solarisdb/perftests/pkg/runner"
+	metrics2 "github.com/solarisdb/perftests/pkg/runner/metrics"
 	"github.com/solarisdb/solaris/api/gen/solaris/v1"
 	"github.com/solarisdb/solaris/golibs/errors"
 	"github.com/solarisdb/solaris/golibs/logging"
@@ -27,8 +28,9 @@ type (
 	}
 
 	QueryMsgsCfg struct {
-		Step   int64 `yaml:"step" json:"step"`
-		Number int   `yaml:"number" json:"number"`
+		Step              int64  `yaml:"step" json:"step"`
+		Number            int    `yaml:"number" json:"number"`
+		TimeoutMetricName string `yaml:"timeoutMetricName" json:"timeoutMetricName"`
 	}
 )
 
@@ -96,7 +98,12 @@ func (r *queryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (done
 		return
 	}
 
-	metric, _ := ctx.Value(metricsQueryRecordsTOs).(*runner.Scalar[int64])
+	var metric *metrics2.Scalar[int64]
+	if len(cfg.TimeoutMetricName) > 0 {
+		if mv, ok := ctx.Value(cfg.TimeoutMetricName).(runner.MetricValue); ok && mv.Type == runner.INT {
+			metric, _ = mv.Value.(*metrics2.Scalar[int64])
+		}
+	}
 
 	fromID := ""
 	i := 0

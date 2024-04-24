@@ -6,6 +6,7 @@ import (
 
 	"github.com/solarisdb/perftests/pkg/model"
 	"github.com/solarisdb/perftests/pkg/runner"
+	metrics2 "github.com/solarisdb/perftests/pkg/runner/metrics"
 	"github.com/solarisdb/solaris/api/gen/solaris/v1"
 	"github.com/solarisdb/solaris/golibs/container"
 	"github.com/solarisdb/solaris/golibs/errors"
@@ -28,8 +29,10 @@ type (
 	}
 
 	AppendCfg struct {
-		MessageSize int `yaml:"messageSize" json:"messageSize"`
-		BatchSize   int `yaml:"batchSize" json:"batchSize"`
+		MessageSize       int    `yaml:"messageSize" json:"messageSize"`
+		BatchSize         int    `yaml:"batchSize" json:"batchSize"`
+		Number            int    `yaml:"number" json:"number"`
+		TimeoutMetricName string `yaml:"timeoutMetricName" json:"timeoutMetricName"`
 	}
 )
 
@@ -79,6 +82,9 @@ func (r *appendMsg) run(ctx context.Context, config *model.ScenarioConfig) (done
 	if cfg.BatchSize == 0 {
 		cfg.BatchSize = 1
 	}
+	if cfg.Number == 0 {
+		cfg.Number = 1
+	}
 
 	//prepareMessage
 	payl := make([]byte, cfg.MessageSize, cfg.MessageSize)
@@ -98,20 +104,27 @@ func (r *appendMsg) run(ctx context.Context, config *model.ScenarioConfig) (done
 		return
 	}
 
-	appendTOs, _ := ctx.Value(metricsAppendTOs).(*runner.Scalar[int64])
+	var metric *metrics2.Scalar[int64]
+	if len(cfg.TimeoutMetricName) > 0 {
+		if mv, ok := ctx.Value(cfg.TimeoutMetricName).(runner.MetricValue); ok && mv.Type == runner.INT {
+			metric, _ = mv.Value.(*metrics2.Scalar[int64])
+		}
+	}
 
 	req := &solaris.AppendRecordsRequest{
 		LogID:   log,
 		Records: records,
 	}
-	start := time.Now()
-	_, err = clnt.AppendRecords(ctx, req)
-	if err != nil {
-		doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to append records: %w", err))
-		return
-	}
-	if appendTOs != nil {
-		appendTOs.Add(time.Since(start).Nanoseconds())
+	for i := 0; i < cfg.Number; i++ {
+		start := time.Now()
+		_, err = clnt.AppendRecords(ctx, req)
+		if err != nil {
+			doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to append records: %w", err))
+			return
+		}
+		if metric != nil {
+			metric.Add(time.Since(start).Nanoseconds())
+		}
 	}
 
 	doneCh <- runner.NewStaticScenarioResult(ctx, nil)

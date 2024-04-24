@@ -33,7 +33,7 @@ type (
 		Logger   logging.Logger `inject:""`
 	}
 	ParallelCfg struct {
-		SkipErrors bool             `yaml:"skipErrors" json:"skipErrors"`
+		SkipErrors bool             `yaml:"skipErrors,omitempty" json:"skipErrors,omitempty"`
 		Steps      []model.Scenario `yaml:"steps" json:"steps"`
 	}
 

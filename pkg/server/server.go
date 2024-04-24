@@ -34,11 +34,12 @@ func Run(ctx context.Context, cfg *model.Config) error {
 		linker.Component{Value: runner.NewPauseExecutor()},
 		linker.Component{Value: runner.NewAwaitExecutor()},
 		linker.Component{Value: runner.NewErrorExecutor()},
+		linker.Component{Value: runner.NewMetricsCreateExecutor()},
+		linker.Component{Value: runner.NewMetricsFixExecutor()},
 
 		linker.Component{Value: testsRunner},
 
 		//solaris
-		linker.Component{Value: solaris.NewMetricsExecutor()},
 		linker.Component{Value: solaris.NewConnectExecutor()},
 		linker.Component{Value: solaris.NewAppendMsgExecutor()},
 		linker.Component{Value: solaris.NewCreateLogExecutor()},

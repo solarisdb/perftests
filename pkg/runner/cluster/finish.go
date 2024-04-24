@@ -24,7 +24,7 @@ type (
 	}
 
 	FinishCfg struct {
-		Await bool `yaml:"await" json:"await"`
+		Await bool `yaml:"await,omitempty" json:"await,omitempty"`
 	}
 )
 

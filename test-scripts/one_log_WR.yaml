@@ -6,7 +6,6 @@ tests:
     scenario:
       name: sequence
       config:
-        skipErrors: false
         steps:
           - name: cluster.connect
             config:
@@ -15,24 +14,23 @@ tests:
               envRunID: PERFTESTS_RUN_ID
           - name: sequence
             config:
-              skipErrors: false
               steps:
                 - name: solaris.connect
                   config:
                     address: localhost:50051
                     envVarAddress: PERFTESTS_SOLARIS_ADDRESS
-                - name: solaris.metrics
+                - name: metricsCreate
                   config:
-                    cmds:
-                      - init
+                    metrics:
+                      INT:
+                        - AppendTimeout
+                        - QueryTimeout
                 - name: repeat
                   config:
-                    period: ""
                     count: 1
                     action:
                       name: sequence
                       config:
-                        skipErrors: false
                         steps:
                           - name: solaris.createLog
                             config:
@@ -40,44 +38,33 @@ tests:
                                 logName: foo
                           - name: repeat
                             config:
-                              period: ""
                               count: 1
                               action:
-                                name: repeat
+                                name: solaris.append
                                 config:
-                                  period: ""
-                                  count: 10000
-                                  action:
-                                    name: solaris.append
-                                    config:
-                                      messageSize: 1024
-                                      batchSize: 1
-                                  executor: sequence
-                                  skipErrors: false
+                                  messageSize: 1024
+                                  batchSize: 1
+                                  number: 10000
+                                  timeoutMetricName: AppendTimeout
                               executor: parallel
-                              skipErrors: false
                           - name: repeat
                             config:
-                              period: ""
                               count: 1
                               action:
                                 name: solaris.queryMsgs
                                 config:
                                   step: 100
                                   number: -1
+                                  timeoutMetricName: QueryTimeout
                               executor: parallel
-                              skipErrors: false
                           - name: solaris.deleteLog
-                            config: null
                     executor: parallel
-                    skipErrors: false
-                - name: solaris.metrics
+                - name: metricsFix
                   config:
-                    cmds:
-                      - append
-                      - queryRecords
+                    metrics:
+                      - AppendTimeout
+                      - QueryTimeout
           - name: cluster.finish
             config:
               await: true
           - name: cluster.delete
-            config: null

@@ -1,4 +1,4 @@
-package runner
+package metrics
 
 import (
 	"fmt"
@@ -99,4 +99,11 @@ func (s *String) String() string {
 
 func (s *String) Total() int64 {
 	return s.total.Load().(int64)
+}
+
+func (s *String) Copy() *String {
+	var cp String
+	cp.total.Store(s.total.Load())
+	cp.value.Store(s.value.Load())
+	return &cp
 }

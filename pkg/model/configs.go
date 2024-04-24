@@ -23,7 +23,7 @@ type (
 
 	Scenario struct {
 		Name   string          `yaml:"name" json:"name"`
-		Config *ScenarioConfig `yaml:"config" json:"config"`
+		Config *ScenarioConfig `yaml:"config,omitempty" json:"config,omitempty"`
 	}
 
 	ScenarioConfig struct {

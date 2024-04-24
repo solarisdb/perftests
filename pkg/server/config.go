@@ -77,6 +77,8 @@ func clusterRun(runID, svcAddress, envVarAddress string, wrappedScenario *model.
 
 func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentLogs, writersToLog, appendsToLog, batchSize, msgSize int,
 	logReaders, queryStep, queriesNumber int) *model.Scenario {
+	appendMetricName := "AppendTimeout"
+	queryMetricName := "QueryTimeout"
 	return &model.Scenario{
 		Name: runner.SequenceRunName,
 		Config: model.ToScenarioConfig(&runner.SequenceCfg{
@@ -91,9 +93,11 @@ func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentL
 				},
 				// init metrics
 				{
-					Name: solaris.MetricsRunName,
-					Config: model.ToScenarioConfig(&solaris.MetricsCfg{
-						Cmds: []solaris.MetricsCmd{solaris.MetricsInit},
+					Name: runner.MetricsCreateRunName,
+					Config: model.ToScenarioConfig(&runner.MetricsCreateCfg{
+						Metrics: map[runner.MetricsType][]string{
+							runner.INT: {appendMetricName, queryMetricName},
+						},
 					}),
 				},
 				// append to 'concurrentLogs' number of logs in parallel, each appender adds 100 messages in parallel
@@ -114,9 +118,9 @@ func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentL
 										}),
 									},
 									// start 'writersToLog' concurrent writers
-									writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize),
+									writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize, appendMetricName),
 									// start 'readers' concurrent readers
-									readConcurrently(logReaders, queryStep, queriesNumber),
+									readConcurrently(logReaders, queryStep, queriesNumber, queryMetricName),
 									// delete log
 									{
 										Name: solaris.DeleteLogName,
@@ -126,11 +130,11 @@ func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentL
 						},
 					}),
 				},
-				// trace append metrics
+				// trace metrics
 				{
-					Name: solaris.MetricsRunName,
-					Config: model.ToScenarioConfig(&solaris.MetricsCfg{
-						Cmds: []solaris.MetricsCmd{solaris.MetricsAppend, solaris.MetricsQueryRecords},
+					Name: runner.MetricsFixRunName,
+					Config: model.ToScenarioConfig(&runner.MetricsFixCfg{
+						Metrics: []string{appendMetricName, queryMetricName},
 					}),
 				},
 			},
@@ -138,7 +142,7 @@ func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentL
 	}
 }
 
-func writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize int) model.Scenario {
+func writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize int, metricName string) model.Scenario {
 	return model.Scenario{
 		Name: runner.RepeatRunName,
 		Config: model.ToScenarioConfig(&runner.RepeatCfg{
@@ -146,24 +150,19 @@ func writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize int) model
 			Executor: runner.ParallelRunName,
 			Action: model.Scenario{
 				// start 'appendsToLog' sequential appends
-				Name: runner.RepeatRunName,
-				Config: model.ToScenarioConfig(&runner.RepeatCfg{
-					Count:    appendsToLog,
-					Executor: runner.SequenceRunName,
-					Action: model.Scenario{
-						Name: solaris.AppendRunName,
-						Config: model.ToScenarioConfig(&solaris.AppendCfg{
-							MessageSize: msgSize,
-							BatchSize:   batchSize,
-						}),
-					},
+				Name: solaris.AppendRunName,
+				Config: model.ToScenarioConfig(&solaris.AppendCfg{
+					MessageSize:       msgSize,
+					BatchSize:         batchSize,
+					Number:            appendsToLog,
+					TimeoutMetricName: metricName,
 				}),
 			},
 		}),
 	}
 }
 
-func readConcurrently(logReaders, queryStep, queriesNumber int) model.Scenario {
+func readConcurrently(logReaders, queryStep, queriesNumber int, metricName string) model.Scenario {
 	return model.Scenario{
 		Name: runner.RepeatRunName,
 		Config: model.ToScenarioConfig(&runner.RepeatCfg{
@@ -173,8 +172,9 @@ func readConcurrently(logReaders, queryStep, queriesNumber int) model.Scenario {
 				// start sequential queries
 				Name: solaris.QueryMsgsRunName,
 				Config: model.ToScenarioConfig(&solaris.QueryMsgsCfg{
-					Step:   int64(queryStep),
-					Number: queriesNumber,
+					Step:              int64(queryStep),
+					Number:            queriesNumber,
+					TimeoutMetricName: metricName,
 				}),
 			},
 		}),
