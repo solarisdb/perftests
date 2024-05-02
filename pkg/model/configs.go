@@ -13,7 +13,7 @@ type (
 	Config struct {
 		Log LoggingConfig `yaml:"log" mapstructure:"log" json:"log"`
 
-		Tests map[string]Test `yaml:"tests"  json:"tests"`
+		Tests []Test `yaml:"tests"  json:"tests"`
 	}
 
 	Test struct {

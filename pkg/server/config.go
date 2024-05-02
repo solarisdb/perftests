@@ -13,6 +13,11 @@ import (
 var defaultAddress = "localhost:50051"
 var defaultEnvVarAddress = "PERFTESTS_SOLARIS_ADDRESS"
 var defaultEnvRunID = "PERFTESTS_RUN_ID"
+var defLogLevel = "info"
+
+var oneKb = int(math.Pow(float64(2), float64(10)))
+var oneMB = oneKb * oneKb
+var oneGB = oneKb * oneMB
 
 const appendToMetricName = "AppendTimeout"
 const queryToMetricName = "QueryTimeout"
@@ -20,13 +25,48 @@ const queryToMetricName = "QueryTimeout"
 func GetDefaultConfig() *model.Config {
 	// one appender writes to one log 10000 messages by 1K and then
 	// one reader reads the log
-	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, 1, 1, 100, 1, int(math.Pow(float64(2), float64(10))), 1, 100, -1)
+	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, 1, 1, 10000, 1, int(math.Pow(float64(2), float64(10))), 1, 100, -1)
 	return &model.Config{
 		Log: model.LoggingConfig{Level: "info"},
-		Tests: map[string]model.Test{
-			test.Name: *test,
+		Tests: []model.Test{
+			*test,
 		},
 	}
+}
+
+func cleanupCluster() *model.Test {
+	scenario := clusterCleanup(defaultEnvRunID, defaultAddress, defaultEnvVarAddress)
+	return &model.Test{
+		Name:     fmt.Sprintf("Cleanup cluster %s", defaultEnvRunID),
+		Scenario: *scenario,
+	}
+}
+
+func buildAppendToManyLogsTests() *model.Config {
+	//test0 := cleanupCluster()
+	// append to 10K logs (one log one writer), write 10GB data by 1kB messages
+	test1 := appendToManyLogs(10000, 1*oneGB, 1*oneKb)
+	// append to 10K logs (one log one writer), write 10MB data by 10kB messages
+	test2 := appendToManyLogs(10000, 1*oneGB, 10*oneKb)
+	// append to 10K logs (one log one writer), write 10MB data by 100kB messages
+	test3 := appendToManyLogs(10000, 1*oneGB, 100*oneKb)
+	return &model.Config{
+		Log: model.LoggingConfig{Level: defLogLevel},
+		Tests: []model.Test{
+			//*test0,
+			*test1,
+			*test2,
+			*test3,
+		},
+	}
+}
+
+// appendToManyLogs appends to concurrentLogs logs (for one log one writer), write totalSize data by oneStep size of messages
+func appendToManyLogs(concurrentLogs int, totalSize, oneStep int) *model.Test {
+	appendsToLog := totalSize / oneStep
+	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, concurrentLogs, 1, appendsToLog, 1, oneStep, 0, 100, -1)
+	test.Name = fmt.Sprintf("Append to %d logs, write %s to each one, one message size %s", concurrentLogs, humanReadableSize(totalSize), humanReadableSize(oneStep))
+	return test
 }
 
 // concurrentLogs - how many logs are written concurrently
@@ -41,9 +81,10 @@ func appendToLogsThenQueryTest(runID, svcAddress, envVarAddress string, concurre
 	logReaders, queryStep, queriesNumber int) *model.Test {
 	scenario := appendToLogsThenQueryScenario(svcAddress, envVarAddress, concurrentLogs, writersToLog, appendsToLog, batchSize, msgSize,
 		logReaders, queryStep, queriesNumber)
+	scenario = clusterRun(runID, svcAddress, envVarAddress, scenario)
 	return &model.Test{
 		Name:     fmt.Sprintf("Append to %d logs then read it", concurrentLogs),
-		Scenario: *clusterRun(runID, svcAddress, envVarAddress, scenario),
+		Scenario: *scenario,
 	}
 }
 
@@ -70,6 +111,29 @@ func clusterRun(runID, svcAddress, envVarAddress string, wrappedScenario *model.
 						Metrics: map[runner.MetricsType][]string{
 							runner.DURATION: {appendToMetricName, queryToMetricName},
 						},
+					}),
+				},
+				// delete cluster
+				{
+					Name: cluster.DeleteClusterName,
+				},
+			},
+		}),
+	}
+}
+
+func clusterCleanup(runID, svcAddress, envVarAddress string) *model.Scenario {
+	return &model.Scenario{
+		Name: runner.SequenceRunName,
+		Config: model.ToScenarioConfig(&runner.SequenceCfg{
+			Steps: []model.Scenario{
+				// connect to cluster, add node
+				{
+					Name: cluster.ConnectName,
+					Config: model.ToScenarioConfig(&cluster.ConnectCfg{
+						Address:       svcAddress,
+						EnvVarAddress: envVarAddress,
+						EnvRunID:      runID,
 					}),
 				},
 				// delete cluster
@@ -185,4 +249,24 @@ func readConcurrently(logReaders, queryStep, queriesNumber int, metricName strin
 			},
 		}),
 	}
+}
+
+var sizes = []string{"B", "kB", "MB", "GB", "TB", "PB", "EB"}
+
+func humanReadableSize(origSize int) string {
+	base := 1024.0
+	unitsLimit := len(sizes)
+	i := 0
+	size := float64(origSize)
+	for size >= base && i < unitsLimit {
+		size = size / base
+		i++
+	}
+
+	f := "%.0f %s"
+	if i > 1 {
+		f = "%.2f %s"
+	}
+
+	return fmt.Sprintf(f, size, sizes[i])
 }

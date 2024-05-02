@@ -1,8 +1,7 @@
 log:
   level: info
 tests:
-  Append to 1 logs then read it:
-    name: Append to 1 logs then read it
+  - name: Append to 1 logs then read it
     scenario:
       name: sequence
       config:
