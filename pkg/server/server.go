@@ -36,6 +36,8 @@ func Run(ctx context.Context, cfg *model.Config) error {
 		linker.Component{Value: runner.NewErrorExecutor()},
 		linker.Component{Value: runner.NewMetricsCreateExecutor()},
 		linker.Component{Value: runner.NewMetricsFixExecutor()},
+		linker.Component{Value: runner.NewDelayExecutor()},
+		linker.Component{Value: runner.NewWeightedExecutor()},
 
 		linker.Component{Value: testsRunner},
 
