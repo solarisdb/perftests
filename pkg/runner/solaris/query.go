@@ -27,8 +27,9 @@ type (
 	}
 
 	QueryMsgsCfg struct {
-		Step   int64 `yaml:"step" json:"step"`
-		Number int   `yaml:"number" json:"number"`
+		Step              int64  `yaml:"step" json:"step"`
+		Number            int    `yaml:"number" json:"number"`
+		TimeoutMetricName string `yaml:"timeoutMetricName" json:"timeoutMetricName"`
 	}
 )
 
@@ -96,7 +97,7 @@ func (r *queryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (done
 		return
 	}
 
-	metric, _ := ctx.Value(metricsQueryRecordsTOs).(*runner.Scalar[int64])
+	metric, _ := runner.GetDurationMetric(ctx, cfg.TimeoutMetricName)
 
 	fromID := ""
 	i := 0

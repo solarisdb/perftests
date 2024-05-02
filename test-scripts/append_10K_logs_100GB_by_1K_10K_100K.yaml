@@ -1,0 +1,210 @@
+log:
+  level: info
+tests:
+  - name: Append to 10000 logs, write 100.00 GB to each one, one message size 1 kB
+    scenario:
+      name: sequence
+      config:
+        steps:
+          - name: cluster.connect
+            config:
+              address: localhost:50051
+              envVarAddress: PERFTESTS_SOLARIS_ADDRESS
+              envRunID: PERFTESTS_RUN_ID
+          - name: sequence
+            config:
+              steps:
+                - name: solaris.connect
+                  config:
+                    address: localhost:50051
+                    envVarAddress: PERFTESTS_SOLARIS_ADDRESS
+                - name: metricsCreate
+                  config:
+                    metrics:
+                      DURATION:
+                        - AppendTimeout
+                        - QueryTimeout
+                - name: repeat
+                  config:
+                    count: 10000
+                    action:
+                      name: sequence
+                      config:
+                        steps:
+                          - name: solaris.createLog
+                            config:
+                              tags:
+                                logName: foo
+                          - name: repeat
+                            config:
+                              count: 1
+                              action:
+                                name: solaris.append
+                                config:
+                                  messageSize: 1024
+                                  batchSize: 1
+                                  number: 104857600
+                                  timeoutMetricName: AppendTimeout
+                              executor: parallel
+                          - name: repeat
+                            config:
+                              action:
+                                name: solaris.queryMsgs
+                                config:
+                                  step: 100
+                                  number: -1
+                                  timeoutMetricName: QueryTimeout
+                              executor: parallel
+                          - name: solaris.deleteLog
+                    executor: parallel
+                - name: metricsFix
+                  config:
+                    metrics:
+                      - AppendTimeout
+                      - QueryTimeout
+          - name: cluster.finish
+            config:
+              metrics:
+                DURATION:
+                  - AppendTimeout
+                  - QueryTimeout
+              await: true
+          - name: cluster.delete
+  - name: Append to 10000 logs, write 100.00 GB to each one, one message size 10 kB
+    scenario:
+      name: sequence
+      config:
+        steps:
+          - name: cluster.connect
+            config:
+              address: localhost:50051
+              envVarAddress: PERFTESTS_SOLARIS_ADDRESS
+              envRunID: PERFTESTS_RUN_ID
+          - name: sequence
+            config:
+              steps:
+                - name: solaris.connect
+                  config:
+                    address: localhost:50051
+                    envVarAddress: PERFTESTS_SOLARIS_ADDRESS
+                - name: metricsCreate
+                  config:
+                    metrics:
+                      DURATION:
+                        - AppendTimeout
+                        - QueryTimeout
+                - name: repeat
+                  config:
+                    count: 10000
+                    action:
+                      name: sequence
+                      config:
+                        steps:
+                          - name: solaris.createLog
+                            config:
+                              tags:
+                                logName: foo
+                          - name: repeat
+                            config:
+                              count: 1
+                              action:
+                                name: solaris.append
+                                config:
+                                  messageSize: 10240
+                                  batchSize: 1
+                                  number: 10485760
+                                  timeoutMetricName: AppendTimeout
+                              executor: parallel
+                          - name: repeat
+                            config:
+                              action:
+                                name: solaris.queryMsgs
+                                config:
+                                  step: 100
+                                  number: -1
+                                  timeoutMetricName: QueryTimeout
+                              executor: parallel
+                          - name: solaris.deleteLog
+                    executor: parallel
+                - name: metricsFix
+                  config:
+                    metrics:
+                      - AppendTimeout
+                      - QueryTimeout
+          - name: cluster.finish
+            config:
+              metrics:
+                DURATION:
+                  - AppendTimeout
+                  - QueryTimeout
+              await: true
+          - name: cluster.delete
+  - name: Append to 10000 logs, write 100.00 GB to each one, one message size 100 kB
+    scenario:
+      name: sequence
+      config:
+        steps:
+          - name: cluster.connect
+            config:
+              address: localhost:50051
+              envVarAddress: PERFTESTS_SOLARIS_ADDRESS
+              envRunID: PERFTESTS_RUN_ID
+          - name: sequence
+            config:
+              steps:
+                - name: solaris.connect
+                  config:
+                    address: localhost:50051
+                    envVarAddress: PERFTESTS_SOLARIS_ADDRESS
+                - name: metricsCreate
+                  config:
+                    metrics:
+                      DURATION:
+                        - AppendTimeout
+                        - QueryTimeout
+                - name: repeat
+                  config:
+                    count: 10000
+                    action:
+                      name: sequence
+                      config:
+                        steps:
+                          - name: solaris.createLog
+                            config:
+                              tags:
+                                logName: foo
+                          - name: repeat
+                            config:
+                              count: 1
+                              action:
+                                name: solaris.append
+                                config:
+                                  messageSize: 102400
+                                  batchSize: 1
+                                  number: 1048576
+                                  timeoutMetricName: AppendTimeout
+                              executor: parallel
+                          - name: repeat
+                            config:
+                              action:
+                                name: solaris.queryMsgs
+                                config:
+                                  step: 100
+                                  number: -1
+                                  timeoutMetricName: QueryTimeout
+                              executor: parallel
+                          - name: solaris.deleteLog
+                    executor: parallel
+                - name: metricsFix
+                  config:
+                    metrics:
+                      - AppendTimeout
+                      - QueryTimeout
+          - name: cluster.finish
+            config:
+              metrics:
+                DURATION:
+                  - AppendTimeout
+                  - QueryTimeout
+              await: true
+          - name: cluster.delete

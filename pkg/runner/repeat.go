@@ -23,11 +23,11 @@ type (
 	}
 
 	RepeatCfg struct {
-		Period     string         `yaml:"period" json:"period"`
-		Count      int            `yaml:"count" json:"count"`
+		Period     string         `yaml:"period,omitempty" json:"period,omitempty"`
+		Count      int            `yaml:"count,omitempty" json:"count,omitempty"`
 		Action     model.Scenario `yaml:"action" json:"action"`
 		Executor   string         `yaml:"executor" json:"executor"`
-		SkipErrors bool           `yaml:"skipErrors" json:"skipErrors"`
+		SkipErrors bool           `yaml:"skipErrors,omitempty" json:"skipErrors,omitempty"`
 	}
 )
 

@@ -9,11 +9,9 @@ type (
 		Delete(ctx context.Context) error
 	}
 
-	Result string
-
 	Node interface {
-		Finish(ctx context.Context, result Result) error
-		Result(ctx context.Context) (Result, error)
+		Finish(ctx context.Context, result []byte) error
+		Result(ctx context.Context) ([]byte, error)
 		Delete(ctx context.Context) error
 	}
 )

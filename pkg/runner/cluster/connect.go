@@ -34,9 +34,9 @@ type (
 	}
 
 	ConnectCfg struct {
-		Address       string `yaml:"address" json:"address"`
-		EnvVarAddress string `yaml:"envVarAddress" json:"envVarAddress"`
-		EnvRunID      string `yaml:"envRunID" json:"envRunID"`
+		Address       string `yaml:"address,omitempty" json:"address,omitempty"`
+		EnvVarAddress string `yaml:"envVarAddress,omitempty" json:"envVarAddress,omitempty"`
+		EnvRunID      string `yaml:"envRunID,omitempty" json:"envRunID,omitempty"`
 	}
 
 	connectScenarioResult struct {
