@@ -21,9 +21,9 @@ func testCfg() *model.Config {
 	lcfg := model.LoggingConfig{Level: "trace"}
 	return &model.Config{
 		Log: lcfg,
-		Tests: map[string]model.Test{
-			"testContextPropagation": testContextPropagation(),
-			"testErrors":             testErrors(),
+		Tests: []model.Test{
+			testContextPropagation(),
+			testErrors(),
 		},
 	}
 }

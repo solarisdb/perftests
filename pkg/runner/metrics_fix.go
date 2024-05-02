@@ -105,7 +105,7 @@ func (r *metricsFix) run(ctx context.Context, config *model.ScenarioConfig) (don
 				result[mName] = MetricValue{Value: metric, Type: mValue.Type}
 			}
 		default:
-			doneCh <- NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics type: %d", mValue.Type))
+			doneCh <- NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics type: %s", mValue.Type))
 		}
 	}
 	doneCh <- &metricsFixScenarioResult{metrics: result}

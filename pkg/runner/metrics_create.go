@@ -95,7 +95,7 @@ func (r *metricsCreate) run(ctx context.Context, config *model.ScenarioConfig) (
 			case STRING:
 				toCreateMetrics[mName] = MetricValue{Value: metrics2.NewString(), Type: mType}
 			default:
-				doneCh <- NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics type: %d", mType))
+				doneCh <- NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics type: %s", mType))
 			}
 		}
 	}

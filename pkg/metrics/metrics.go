@@ -181,5 +181,5 @@ func (mr IntMetricResult) String() string {
 }
 
 func (mr StringMetricResult) String() string {
-	return fmt.Sprintf("{total:c%d, sum: %s}", mr.Total, mr.Sum)
+	return fmt.Sprintf("{total: %d, sum: %s}", mr.Total, mr.Sum)
 }
