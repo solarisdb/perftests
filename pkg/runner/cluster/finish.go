@@ -112,6 +112,14 @@ func (r *finish) run(ctx context.Context, config *model.ScenarioConfig) (doneCh 
 					_ = mr.ToDuration(mResult)
 					myResult.Metrics[mName] = mr
 				}
+			case runner.RPS:
+				if metric, ok := runner.GetRateMetric(ctx, mName); ok {
+					metric = metric.Copy()
+					mResult := metrics.GetRateMetricResult(metric)
+					var mr typedMetricResult
+					_ = mr.ToRPS(mResult)
+					myResult.Metrics[mName] = mr
+				}
 			case runner.INT:
 				if metric, ok := runner.GetIntMetric(ctx, mName); ok {
 					metric = metric.Copy()
@@ -182,6 +190,15 @@ func (r *finish) run(ctx context.Context, config *model.ScenarioConfig) (doneCh 
 					} else {
 						allMetrics[mName] = nodeM
 					}
+				case runner.RPS:
+					nodeM, _ := tmr.Result.AsRate()
+					nodeMetrics[mName] = nodeM
+					if allM, ok := allMetrics[mName]; ok {
+						dAllM := allM.(metrics.RateMetricResult)
+						allMetrics[mName] = dAllM.Merge(nodeM)
+					} else {
+						allMetrics[mName] = nodeM
+					}
 				case runner.INT:
 					nodeM, _ := tmr.Result.AsInt()
 					nodeMetrics[mName] = nodeM
@@ -237,6 +254,17 @@ func (r *typedMetricResult) ToDuration(v metrics.DurationMetricResult) error {
 	r.Result = &result
 	return nil
 }
+
+func (r *typedMetricResult) ToRPS(v metrics.RateMetricResult) error {
+	var result metricResult
+	if err := result.FromRate(v); err != nil {
+		return err
+	}
+	r.Type = runner.RPS
+	r.Result = &result
+	return nil
+}
+
 func (r *typedMetricResult) ToInt(v metrics.IntMetricResult) error {
 	var result metricResult
 	if err := result.FromInt(v); err != nil {
@@ -260,6 +288,11 @@ func (mr *metricResult) FromDuraion(v metrics.DurationMetricResult) error {
 	mr.union = b
 	return err
 }
+func (mr *metricResult) FromRate(v metrics.RateMetricResult) error {
+	b, err := json.Marshal(v)
+	mr.union = b
+	return err
+}
 func (mr *metricResult) FromInt(v metrics.IntMetricResult) error {
 	b, err := json.Marshal(v)
 	mr.union = b
@@ -272,6 +305,11 @@ func (mr *metricResult) FromString(v metrics.StringMetricResult) error {
 }
 func (mr metricResult) AsDuration() (metrics.DurationMetricResult, error) {
 	var body metrics.DurationMetricResult
+	err := json.Unmarshal(mr.union, &body)
+	return body, err
+}
+func (mr metricResult) AsRate() (metrics.RateMetricResult, error) {
+	var body metrics.RateMetricResult
 	err := json.Unmarshal(mr.union, &body)
 	return body, err
 }

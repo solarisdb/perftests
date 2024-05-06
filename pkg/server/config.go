@@ -20,12 +20,17 @@ var oneMB = oneKb * oneKb
 var oneGB = oneKb * oneMB
 
 const appendToMetricName = "AppendTimeout"
+const appendMsgsPerSecMetricName = "AppendMsgsInSec"
+const appendBytesPerSecMetricName = "AppendBytesInSec"
 const queryToMetricName = "QueryTimeout"
+const queryMsgsPerSecMetricName = "QueryMsgsInSec"
+const queryBytesPerSecMetricName = "QueryBytesInSec"
 
 func GetDefaultConfig() *model.Config {
+	//return buildAppendToManyLogsTests()
 	// one appender writes to one log 10000 messages by 1K and then
 	// one reader reads the log
-	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, 1, 1, 10000, 1, int(math.Pow(float64(2), float64(10))), 1, 100, -1)
+	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, 2500, 1, 10, 1, int(math.Pow(float64(2), float64(10))), 1, 100, -1)
 	return &model.Config{
 		Log: model.LoggingConfig{Level: "info"},
 		Tests: []model.Test{
@@ -44,12 +49,15 @@ func cleanupCluster() *model.Test {
 
 func buildAppendToManyLogsTests() *model.Config {
 	//test0 := cleanupCluster()
+	concLogs := 100000
+	writers := 1
+	data := 10 * oneGB
 	// append to 10K logs (one log one writer), write 10GB data by 1kB messages
-	test1 := appendToManyLogs(10000, 1*oneGB, 1*oneKb)
+	test1 := appendToManyLogs(concLogs, writers, data, 1*oneKb)
 	// append to 10K logs (one log one writer), write 10MB data by 10kB messages
-	test2 := appendToManyLogs(10000, 1*oneGB, 10*oneKb)
+	test2 := appendToManyLogs(concLogs, writers, data, 10*oneKb)
 	// append to 10K logs (one log one writer), write 10MB data by 100kB messages
-	test3 := appendToManyLogs(10000, 1*oneGB, 100*oneKb)
+	test3 := appendToManyLogs(concLogs, writers, data, 100*oneKb)
 	return &model.Config{
 		Log: model.LoggingConfig{Level: defLogLevel},
 		Tests: []model.Test{
@@ -62,9 +70,9 @@ func buildAppendToManyLogsTests() *model.Config {
 }
 
 // appendToManyLogs appends to concurrentLogs logs (for one log one writer), write totalSize data by oneStep size of messages
-func appendToManyLogs(concurrentLogs int, totalSize, oneStep int) *model.Test {
+func appendToManyLogs(concurrentLogs, writers int, totalSize, oneStep int) *model.Test {
 	appendsToLog := totalSize / oneStep
-	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, concurrentLogs, 1, appendsToLog, 1, oneStep, 0, 100, -1)
+	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, concurrentLogs, writers, appendsToLog, 1, oneStep, 0, 100, -1)
 	test.Name = fmt.Sprintf("Append to %d logs, write %s to each one, one message size %s", concurrentLogs, humanReadableSize(totalSize), humanReadableSize(oneStep))
 	return test
 }
@@ -110,6 +118,7 @@ func clusterRun(runID, svcAddress, envVarAddress string, wrappedScenario *model.
 						Await: true,
 						Metrics: map[runner.MetricsType][]string{
 							runner.DURATION: {appendToMetricName, queryToMetricName},
+							runner.RPS:      {appendMsgsPerSecMetricName, appendBytesPerSecMetricName, queryMsgsPerSecMetricName, queryBytesPerSecMetricName},
 						},
 					}),
 				},
@@ -149,6 +158,10 @@ func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentL
 	logReaders, queryStep, queriesNumber int) *model.Scenario {
 	appendMetricName := appendToMetricName
 	queryMetricName := queryToMetricName
+	appendMsgsMName := appendMsgsPerSecMetricName
+	appendBytesMName := appendBytesPerSecMetricName
+	queryMsgsMName := queryMsgsPerSecMetricName
+	queryBytesMName := queryBytesPerSecMetricName
 	return &model.Scenario{
 		Name: runner.SequenceRunName,
 		Config: model.ToScenarioConfig(&runner.SequenceCfg{
@@ -167,6 +180,7 @@ func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentL
 					Config: model.ToScenarioConfig(&runner.MetricsCreateCfg{
 						Metrics: map[runner.MetricsType][]string{
 							runner.DURATION: {appendMetricName, queryMetricName},
+							runner.RPS:      {appendMsgsMName, appendBytesMName, queryMsgsMName, queryBytesMName},
 						},
 					}),
 				},
@@ -188,9 +202,9 @@ func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentL
 										}),
 									},
 									// start 'writersToLog' concurrent writers
-									writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize, appendMetricName),
+									writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize, appendMetricName, appendMsgsMName, appendBytesMName),
 									// start 'readers' concurrent readers
-									readConcurrently(logReaders, queryStep, queriesNumber, queryMetricName),
+									readConcurrently(logReaders, queryStep, queriesNumber, queryMetricName, queryMsgsMName, queryBytesMName),
 									// delete log
 									{
 										Name: solaris.DeleteLogName,
@@ -204,7 +218,7 @@ func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentL
 				{
 					Name: runner.MetricsFixRunName,
 					Config: model.ToScenarioConfig(&runner.MetricsFixCfg{
-						Metrics: []string{appendMetricName, queryMetricName},
+						Metrics: []string{appendMetricName, queryMetricName, appendMsgsMName, appendBytesMName, queryMsgsMName, queryBytesMName},
 					}),
 				},
 			},
@@ -212,7 +226,7 @@ func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentL
 	}
 }
 
-func writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize int, metricName string) model.Scenario {
+func writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize int, toMName, msgsRateMName, bytesRateMName string) model.Scenario {
 	return model.Scenario{
 		Name: runner.RepeatRunName,
 		Config: model.ToScenarioConfig(&runner.RepeatCfg{
@@ -222,17 +236,19 @@ func writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize int, metri
 				// start 'appendsToLog' sequential appends
 				Name: solaris.AppendRunName,
 				Config: model.ToScenarioConfig(&solaris.AppendCfg{
-					MessageSize:       msgSize,
-					BatchSize:         batchSize,
-					Number:            appendsToLog,
-					TimeoutMetricName: metricName,
+					MessageSize:         msgSize,
+					BatchSize:           batchSize,
+					Number:              appendsToLog,
+					TimeoutMetricName:   toMName,
+					MsgsRateMetricName:  msgsRateMName,
+					BytesRateMetricName: bytesRateMName,
 				}),
 			},
 		}),
 	}
 }
 
-func readConcurrently(logReaders, queryStep, queriesNumber int, metricName string) model.Scenario {
+func readConcurrently(logReaders, queryStep, queriesNumber int, toMetricName, queryMsgsMName, queryBytesMName string) model.Scenario {
 	return model.Scenario{
 		Name: runner.RepeatRunName,
 		Config: model.ToScenarioConfig(&runner.RepeatCfg{
@@ -242,9 +258,11 @@ func readConcurrently(logReaders, queryStep, queriesNumber int, metricName strin
 				// start sequential queries
 				Name: solaris.QueryMsgsRunName,
 				Config: model.ToScenarioConfig(&solaris.QueryMsgsCfg{
-					Step:              int64(queryStep),
-					Number:            queriesNumber,
-					TimeoutMetricName: metricName,
+					Step:                int64(queryStep),
+					Number:              queriesNumber,
+					TimeoutMetricName:   toMetricName,
+					MsgsRateMetricName:  queryMsgsMName,
+					BytesRateMetricName: queryBytesMName,
 				}),
 			},
 		}),

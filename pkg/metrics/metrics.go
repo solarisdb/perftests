@@ -19,6 +19,12 @@ type (
 		value atomic.Value
 	}
 
+	Rate struct {
+		scale time.Duration
+		dur   atomic.Value //time.Duration
+		sum   atomic.Value //float64
+	}
+
 	Number interface {
 		constraints.Float | constraints.Integer
 	}
@@ -38,6 +44,12 @@ type (
 	StringMetricResult struct {
 		Total int64  `yaml:"total" json:"total"`
 		Sum   string `yaml:"sum" json:"sum"`
+	}
+
+	RateMetricResult struct {
+		Scale time.Duration `yaml:"scale" json:"scale"`
+		Total time.Duration `yaml:"total" json:"total"`
+		Sum   float64       `yaml:"sum" json:"sum"`
 	}
 )
 
@@ -77,6 +89,48 @@ func (s *Scalar[T]) Total() int64 {
 func (s *Scalar[T]) Copy() *Scalar[T] {
 	var cp Scalar[T]
 	cp.total.Store(s.total.Load())
+	cp.sum.Store(s.sum.Load())
+	return &cp
+}
+
+func NewRate(scale time.Duration) *Rate {
+	s := new(Rate)
+	var t float64
+	s.scale = scale
+	s.dur.Store(time.Duration(0))
+	s.sum.Store(t)
+	return s
+}
+
+func (s *Rate) Add(value float64, duration time.Duration) {
+	total := s.dur.Load().(time.Duration)
+	for !s.dur.CompareAndSwap(total, total+duration) {
+		total = s.dur.Load().(time.Duration)
+	}
+	sum := s.sum.Load().(float64)
+	for !s.sum.CompareAndSwap(sum, sum+value) {
+		sum = s.sum.Load().(float64)
+	}
+}
+
+func (s *Rate) Rate() float64 {
+	total := s.dur.Load().(time.Duration)
+	sum := s.sum.Load().(float64)
+	return sum / float64(total) * float64(s.scale)
+}
+
+func (s *Rate) Sum() float64 {
+	return s.sum.Load().(float64)
+}
+
+func (s *Rate) Duration() time.Duration {
+	return s.dur.Load().(time.Duration)
+}
+
+func (s *Rate) Copy() *Rate {
+	var cp Rate
+	cp.scale = s.scale
+	cp.dur.Store(s.dur.Load())
 	cp.sum.Store(s.sum.Load())
 	return &cp
 }
@@ -142,6 +196,13 @@ func (o1 IntMetricResult) Merge(o2 IntMetricResult) IntMetricResult {
 	return res
 }
 
+func (o1 RateMetricResult) Merge(o2 RateMetricResult) RateMetricResult {
+	var res RateMetricResult
+	res.Total = o1.Total + o2.Total
+	res.Sum = o1.Sum + o2.Sum
+	return res
+}
+
 func (o1 StringMetricResult) Merge(o2 StringMetricResult) StringMetricResult {
 	var res StringMetricResult
 	res.Total = o1.Total + o2.Total
@@ -172,6 +233,14 @@ func GetIntMetricResult(metric *Scalar[int64]) IntMetricResult {
 	return metricResult
 }
 
+func GetRateMetricResult(metric *Rate) RateMetricResult {
+	var metricResult RateMetricResult
+	metricResult.Total = metric.Duration()
+	metricResult.Scale = metric.scale
+	metricResult.Sum = metric.Sum()
+	return metricResult
+}
+
 func (mr DurationMetricResult) String() string {
 	return fmt.Sprintf("{total: %d, sum: %s, mean: %s}", mr.Total, mr.Sum.Round(time.Millisecond), mr.Mean.Round(time.Millisecond))
 }
@@ -182,4 +251,8 @@ func (mr IntMetricResult) String() string {
 
 func (mr StringMetricResult) String() string {
 	return fmt.Sprintf("{total: %d, sum: %s}", mr.Total, mr.Sum)
+}
+
+func (mr RateMetricResult) String() string {
+	return fmt.Sprintf("{rate: %.2f}", mr.Sum/float64(mr.Total)*float64(mr.Scale))
 }

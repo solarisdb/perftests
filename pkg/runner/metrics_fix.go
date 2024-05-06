@@ -97,6 +97,12 @@ func (r *metricsFix) run(ctx context.Context, config *model.ScenarioConfig) (don
 				r.exec.Logger.Infof("Metric %q: total %d, sum %s, mean %s", mName, mResult.Total, sumDur.String(), meanDur.String())
 				result[mName] = MetricValue{Value: metric, Type: mValue.Type}
 			}
+		case RPS:
+			if metric, ok := GetRateMetric(ctx, mName); ok {
+				metric = metric.Copy()
+				r.exec.Logger.Infof("Metric %q: rate %.2f in sec", mName, metric.Rate())
+				result[mName] = MetricValue{Value: metric, Type: mValue.Type}
+			}
 		case STRING:
 			if metric, ok := GetStringMetric(ctx, mName); ok {
 				metric = metric.Copy()

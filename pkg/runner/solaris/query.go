@@ -27,9 +27,11 @@ type (
 	}
 
 	QueryMsgsCfg struct {
-		Step              int64  `yaml:"step" json:"step"`
-		Number            int    `yaml:"number" json:"number"`
-		TimeoutMetricName string `yaml:"timeoutMetricName" json:"timeoutMetricName"`
+		Step                int64  `yaml:"step" json:"step"`
+		Number              int    `yaml:"number" json:"number"`
+		TimeoutMetricName   string `yaml:"timeoutMetricName" json:"timeoutMetricName"`
+		MsgsRateMetricName  string `yaml:"msgsRateMetricName" json:"msgsRateMetricName"`
+		BytesRateMetricName string `yaml:"bytesRateMetricName" json:"bytesRateMetricName"`
 	}
 )
 
@@ -97,7 +99,9 @@ func (r *queryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (done
 		return
 	}
 
-	metric, _ := runner.GetDurationMetric(ctx, cfg.TimeoutMetricName)
+	toMetric, _ := runner.GetDurationMetric(ctx, cfg.TimeoutMetricName)
+	bytesInSecMetric, _ := runner.GetRateMetric(ctx, cfg.BytesRateMetricName)
+	msgsInSecMetric, _ := runner.GetRateMetric(ctx, cfg.MsgsRateMetricName)
 
 	fromID := ""
 	i := 0
@@ -116,8 +120,19 @@ func (r *queryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (done
 			doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to query records: %w", err))
 			return
 		}
-		if metric != nil {
-			metric.Add(time.Since(start).Nanoseconds())
+		dur := time.Since(start)
+		if toMetric != nil {
+			toMetric.Add(dur.Nanoseconds())
+		}
+		if msgsInSecMetric != nil {
+			msgsInSecMetric.Add(float64(len(res.Records)), dur)
+		}
+		if bytesInSecMetric != nil {
+			var size int
+			for _, rec := range res.Records {
+				size += len(rec.Payload)
+			}
+			bytesInSecMetric.Add(float64(size), dur)
 		}
 		fromID = res.NextPageID
 		if fromID == "" {

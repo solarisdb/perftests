@@ -1,7 +1,7 @@
 log:
   level: info
 tests:
-  - name: Append to 10000 logs, write 10.00 MB to each one, one message size 1 kB
+  - name: Append to 1 logs, write 100.00 MB to each one, one message size 1 kB
     scenario:
       name: sequence
       config:
@@ -24,9 +24,14 @@ tests:
                       DURATION:
                         - AppendTimeout
                         - QueryTimeout
+                      RPS:
+                        - AppendMsgsInSec
+                        - AppendBytesInSec
+                        - QueryMsgsInSec
+                        - QueryBytesInSec
                 - name: repeat
                   config:
-                    count: 10000
+                    count: 1
                     action:
                       name: sequence
                       config:
@@ -37,14 +42,16 @@ tests:
                                 logName: foo
                           - name: repeat
                             config:
-                              count: 1
+                              count: 10
                               action:
                                 name: solaris.append
                                 config:
                                   messageSize: 1024
                                   batchSize: 1
-                                  number: 10240
+                                  number: 102400
                                   timeoutMetricName: AppendTimeout
+                                  msgsRateMetricName: AppendMsgsInSec
+                                  bytesRateMetricName: AppendBytesInSec
                               executor: parallel
                           - name: repeat
                             config:
@@ -54,6 +61,8 @@ tests:
                                   step: 100
                                   number: -1
                                   timeoutMetricName: QueryTimeout
+                                  msgsRateMetricName: QueryMsgsInSec
+                                  bytesRateMetricName: QueryBytesInSec
                               executor: parallel
                           - name: solaris.deleteLog
                     executor: parallel
@@ -62,15 +71,24 @@ tests:
                     metrics:
                       - AppendTimeout
                       - QueryTimeout
+                      - AppendMsgsInSec
+                      - AppendBytesInSec
+                      - QueryMsgsInSec
+                      - QueryBytesInSec
           - name: cluster.finish
             config:
               metrics:
                 DURATION:
                   - AppendTimeout
                   - QueryTimeout
+                RPS:
+                  - AppendMsgsInSec
+                  - AppendBytesInSec
+                  - QueryMsgsInSec
+                  - QueryBytesInSec
               await: true
           - name: cluster.delete
-  - name: Append to 10000 logs, write 10.00 MB to each one, one message size 10 kB
+  - name: Append to 1 logs, write 100.00 MB to each one, one message size 10 kB
     scenario:
       name: sequence
       config:
@@ -93,9 +111,14 @@ tests:
                       DURATION:
                         - AppendTimeout
                         - QueryTimeout
+                      RPS:
+                        - AppendMsgsInSec
+                        - AppendBytesInSec
+                        - QueryMsgsInSec
+                        - QueryBytesInSec
                 - name: repeat
                   config:
-                    count: 10000
+                    count: 1
                     action:
                       name: sequence
                       config:
@@ -106,14 +129,16 @@ tests:
                                 logName: foo
                           - name: repeat
                             config:
-                              count: 1
+                              count: 10
                               action:
                                 name: solaris.append
                                 config:
                                   messageSize: 10240
                                   batchSize: 1
-                                  number: 1024
+                                  number: 10240
                                   timeoutMetricName: AppendTimeout
+                                  msgsRateMetricName: AppendMsgsInSec
+                                  bytesRateMetricName: AppendBytesInSec
                               executor: parallel
                           - name: repeat
                             config:
@@ -123,6 +148,8 @@ tests:
                                   step: 100
                                   number: -1
                                   timeoutMetricName: QueryTimeout
+                                  msgsRateMetricName: QueryMsgsInSec
+                                  bytesRateMetricName: QueryBytesInSec
                               executor: parallel
                           - name: solaris.deleteLog
                     executor: parallel
@@ -131,15 +158,24 @@ tests:
                     metrics:
                       - AppendTimeout
                       - QueryTimeout
+                      - AppendMsgsInSec
+                      - AppendBytesInSec
+                      - QueryMsgsInSec
+                      - QueryBytesInSec
           - name: cluster.finish
             config:
               metrics:
                 DURATION:
                   - AppendTimeout
                   - QueryTimeout
+                RPS:
+                  - AppendMsgsInSec
+                  - AppendBytesInSec
+                  - QueryMsgsInSec
+                  - QueryBytesInSec
               await: true
           - name: cluster.delete
-  - name: Append to 10000 logs, write 10.00 MB to each one, one message size 100 kB
+  - name: Append to 1 logs, write 100.00 MB to each one, one message size 100 kB
     scenario:
       name: sequence
       config:
@@ -162,9 +198,14 @@ tests:
                       DURATION:
                         - AppendTimeout
                         - QueryTimeout
+                      RPS:
+                        - AppendMsgsInSec
+                        - AppendBytesInSec
+                        - QueryMsgsInSec
+                        - QueryBytesInSec
                 - name: repeat
                   config:
-                    count: 10000
+                    count: 1
                     action:
                       name: sequence
                       config:
@@ -175,14 +216,16 @@ tests:
                                 logName: foo
                           - name: repeat
                             config:
-                              count: 1
+                              count: 10
                               action:
                                 name: solaris.append
                                 config:
                                   messageSize: 102400
                                   batchSize: 1
-                                  number: 102
+                                  number: 1024
                                   timeoutMetricName: AppendTimeout
+                                  msgsRateMetricName: AppendMsgsInSec
+                                  bytesRateMetricName: AppendBytesInSec
                               executor: parallel
                           - name: repeat
                             config:
@@ -192,6 +235,8 @@ tests:
                                   step: 100
                                   number: -1
                                   timeoutMetricName: QueryTimeout
+                                  msgsRateMetricName: QueryMsgsInSec
+                                  bytesRateMetricName: QueryBytesInSec
                               executor: parallel
                           - name: solaris.deleteLog
                     executor: parallel
@@ -200,11 +245,20 @@ tests:
                     metrics:
                       - AppendTimeout
                       - QueryTimeout
+                      - AppendMsgsInSec
+                      - AppendBytesInSec
+                      - QueryMsgsInSec
+                      - QueryBytesInSec
           - name: cluster.finish
             config:
               metrics:
                 DURATION:
                   - AppendTimeout
                   - QueryTimeout
+                RPS:
+                  - AppendMsgsInSec
+                  - AppendBytesInSec
+                  - QueryMsgsInSec
+                  - QueryBytesInSec
               await: true
           - name: cluster.delete

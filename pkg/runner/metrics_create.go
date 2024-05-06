@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"time"
 
 	metrics2 "github.com/solarisdb/perftests/pkg/metrics"
 	"github.com/solarisdb/perftests/pkg/model"
@@ -43,6 +44,7 @@ const (
 	INT                  MetricsType = "INT"
 	STRING               MetricsType = "STRING"
 	DURATION             MetricsType = "DURATION"
+	RPS                  MetricsType = "RPS"
 )
 
 func NewMetricsCreate(exec *metricsCreateExecutor, prefix string) ScenarioRunner {
@@ -94,6 +96,8 @@ func (r *metricsCreate) run(ctx context.Context, config *model.ScenarioConfig) (
 				toCreateMetrics[mName] = MetricValue{Value: metrics2.NewScalar[int64](), Type: mType}
 			case STRING:
 				toCreateMetrics[mName] = MetricValue{Value: metrics2.NewString(), Type: mType}
+			case RPS:
+				toCreateMetrics[mName] = MetricValue{Value: metrics2.NewRate(time.Second), Type: mType}
 			default:
 				doneCh <- NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics type: %s", mType))
 			}
@@ -120,6 +124,18 @@ func GetDurationMetric(ctx context.Context, name string) (*metrics2.Scalar[int64
 	if len(name) > 0 {
 		if mv, ok := ctx.Value(name).(MetricValue); ok && mv.Type == DURATION {
 			if metric, ok = mv.Value.(*metrics2.Scalar[int64]); ok {
+				return metric, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func GetRateMetric(ctx context.Context, name string) (*metrics2.Rate, bool) {
+	var metric *metrics2.Rate
+	if len(name) > 0 {
+		if mv, ok := ctx.Value(name).(MetricValue); ok && mv.Type == RPS {
+			if metric, ok = mv.Value.(*metrics2.Rate); ok {
 				return metric, true
 			}
 		}

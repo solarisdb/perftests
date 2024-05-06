@@ -28,10 +28,12 @@ type (
 	}
 
 	AppendCfg struct {
-		MessageSize       int    `yaml:"messageSize" json:"messageSize"`
-		BatchSize         int    `yaml:"batchSize" json:"batchSize"`
-		Number            int    `yaml:"number" json:"number"`
-		TimeoutMetricName string `yaml:"timeoutMetricName" json:"timeoutMetricName"`
+		MessageSize         int    `yaml:"messageSize" json:"messageSize"`
+		BatchSize           int    `yaml:"batchSize" json:"batchSize"`
+		Number              int    `yaml:"number" json:"number"`
+		TimeoutMetricName   string `yaml:"timeoutMetricName" json:"timeoutMetricName"`
+		MsgsRateMetricName  string `yaml:"msgsRateMetricName" json:"msgsRateMetricName"`
+		BytesRateMetricName string `yaml:"bytesRateMetricName" json:"bytesRateMetricName"`
 	}
 )
 
@@ -103,7 +105,9 @@ func (r *appendMsg) run(ctx context.Context, config *model.ScenarioConfig) (done
 		return
 	}
 
-	metric, _ := runner.GetDurationMetric(ctx, cfg.TimeoutMetricName)
+	toMetric, _ := runner.GetDurationMetric(ctx, cfg.TimeoutMetricName)
+	bytesInSecMetric, _ := runner.GetRateMetric(ctx, cfg.BytesRateMetricName)
+	msgsInSecMetric, _ := runner.GetRateMetric(ctx, cfg.MsgsRateMetricName)
 	req := &solaris.AppendRecordsRequest{
 		LogID:   log,
 		Records: records,
@@ -115,8 +119,15 @@ func (r *appendMsg) run(ctx context.Context, config *model.ScenarioConfig) (done
 			doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to append records: %w", err))
 			return
 		}
-		if metric != nil {
-			metric.Add(time.Since(start).Nanoseconds())
+		dur := time.Since(start)
+		if toMetric != nil {
+			toMetric.Add(dur.Nanoseconds())
+		}
+		if msgsInSecMetric != nil {
+			msgsInSecMetric.Add(float64(cfg.BatchSize), dur)
+		}
+		if bytesInSecMetric != nil {
+			bytesInSecMetric.Add(float64(cfg.BatchSize*cfg.MessageSize), dur)
 		}
 	}
 
