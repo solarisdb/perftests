@@ -104,17 +104,14 @@ func newSeqScenarioResult(results []ScenarioResult, runner *sequenceRunner, skip
 }
 
 func (r *seqScenarioResult) Ctx(ctx context.Context) context.Context {
-	for _, stepRes := range r.results {
-		ctx = stepRes.Ctx(ctx)
-	}
-	if r.skipErrors {
-		eList := container.CopyMap(ctx.Value(SkippedErrorsMap).(map[string]error))
-		for index, stepRes := range r.results {
-			if stepErr := stepRes.Error(); stepErr != nil {
-				eList[fmt.Sprintf("%s/step#%d", r.runner.name, index)] = stepErr
-			}
+	for index, stepRes := range r.results {
+		if stepErr := stepRes.Error(); stepErr == nil {
+			ctx = stepRes.Ctx(ctx)
+		} else if r.skipErrors {
+			eList := container.CopyMap(ctx.Value(SkippedErrorsMap).(map[string]error))
+			eList[fmt.Sprintf("%s/step#%d", r.runner.name, index)] = stepErr
+			ctx = context.WithValue(ctx, SkippedErrorsMap, eList)
 		}
-		ctx = context.WithValue(ctx, SkippedErrorsMap, eList)
 	}
 	return ctx
 }
