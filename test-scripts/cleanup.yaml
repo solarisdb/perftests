@@ -1,0 +1,14 @@
+log:
+  level: info
+tests:
+  - name: Cleanup cluster PERFTESTS_RUN_ID
+    scenario:
+      name: sequence
+      config:
+        steps:
+          - name: cluster.connect
+            config:
+              address: localhost:50051
+              envVarAddress: PERFTESTS_SOLARIS_ADDRESS
+              envRunID: PERFTESTS_RUN_ID
+          - name: cluster.delete

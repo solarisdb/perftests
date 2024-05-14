@@ -41,8 +41,9 @@ type (
 )
 
 const (
-	solarisClnt = "solarisClnt"
-	ConnectName = "solaris.connect"
+	solarisClnt    = "solarisClnt"
+	ConnectName    = "solaris.connect"
+	maxGrpcMsgSize = 100 * 1024 * 1024 //100MB
 )
 
 func NewConnect(exec *connectExecutor, prefix string) runner.ScenarioRunner {
@@ -119,6 +120,7 @@ func (r *connect) dial(addr string) (grpc.ClientConnInterface, error) {
 	initOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxGrpcMsgSize), grpc.MaxCallSendMsgSize(maxGrpcMsgSize)),
 	}
 	if isTls(addr) {
 		// overwriting the TransportCredentials by TLS with default config

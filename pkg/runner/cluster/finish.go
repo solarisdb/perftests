@@ -138,6 +138,7 @@ func (r *finish) run(ctx context.Context, config *model.ScenarioConfig) (doneCh 
 				}
 			default:
 				doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics type: %s", mType))
+				return
 			}
 		}
 	}
