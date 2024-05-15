@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"github.com/solarisdb/perftests/pkg/utils"
 	"github.com/solarisdb/solaris/golibs/container"
 	"math"
 	"sync"
@@ -296,6 +297,7 @@ func (o1 IntMetricResult) Merge(o2 IntMetricResult) IntMetricResult {
 
 func (o1 RateMetricResult) Merge(o2 RateMetricResult) RateMetricResult {
 	var res RateMetricResult
+	res.Scale = o1.Scale
 	res.Samples = mergeSamples(container.SliceCopy(o1.Samples), container.SliceCopy(o2.Samples), o1.Scale)
 	return res
 }
@@ -370,5 +372,7 @@ func (r Rate) String() string {
 	case time.Minute:
 		scaleStr = "in min"
 	}
-	return fmt.Sprintf("{mean rate: %.2f %s, mean interval rate: %.2f %s}", r.Rate(), scaleStr, r.IntervalRate(), scaleStr)
+	meanR := r.Rate()
+	meanIntR := r.IntervalRate()
+	return fmt.Sprintf("{mean rate: %s (%.2f) %s, mean interval rate: %s (%.2f) %s}", utils.HumanReadableSize(meanR), meanR, scaleStr, utils.HumanReadableSize(meanIntR), meanIntR, scaleStr)
 }

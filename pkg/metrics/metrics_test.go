@@ -17,4 +17,7 @@ func TestRateMetricResult_SerDeser(t *testing.T) {
 	var deserResult RateMetricResult
 	assert.NoError(t, json.Unmarshal(raw, &deserResult))
 	assert.Equal(t, rate.Rate(), FromRateMetricResult(deserResult).Rate())
+
+	merged := result.Merge(deserResult)
+	assert.Equal(t, FromRateMetricResult(merged).Rate(), rate.Rate())
 }

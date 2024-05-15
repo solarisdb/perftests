@@ -111,6 +111,8 @@ func (r *finish) run(ctx context.Context, config *model.ScenarioConfig) (doneCh 
 					var mr typedMetricResult
 					_ = mr.ToDuration(mResult)
 					myResult.Metrics[mName] = mr
+				} else {
+					r.exec.Logger.Warnf("Metric %s not found", mName)
 				}
 			case runner.RPS:
 				if metric, ok := runner.GetRateMetric(ctx, mName); ok {
@@ -119,6 +121,8 @@ func (r *finish) run(ctx context.Context, config *model.ScenarioConfig) (doneCh 
 					var mr typedMetricResult
 					_ = mr.ToRPS(mResult)
 					myResult.Metrics[mName] = mr
+				} else {
+					r.exec.Logger.Warnf("Metric %s not found", mName)
 				}
 			case runner.INT:
 				if metric, ok := runner.GetIntMetric(ctx, mName); ok {
@@ -127,6 +131,8 @@ func (r *finish) run(ctx context.Context, config *model.ScenarioConfig) (doneCh 
 					var mr typedMetricResult
 					_ = mr.ToInt(mResult)
 					myResult.Metrics[mName] = mr
+				} else {
+					r.exec.Logger.Warnf("Metric %s not found", mName)
 				}
 			case runner.STRING:
 				if metric, ok := runner.GetStringMetric(ctx, mName); ok {
@@ -135,6 +141,8 @@ func (r *finish) run(ctx context.Context, config *model.ScenarioConfig) (doneCh 
 					var mr typedMetricResult
 					_ = mr.ToString(mResult)
 					myResult.Metrics[mName] = mr
+				} else {
+					r.exec.Logger.Warnf("Metric %s not found", mName)
 				}
 			default:
 				doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("unknown metrics type: %s", mType))
@@ -175,12 +183,6 @@ func (r *finish) run(ctx context.Context, config *model.ScenarioConfig) (doneCh 
 			}
 			nodeMetrics := make(map[string]any)
 			for mName, tmr := range result.Metrics {
-				//if _, ok := nodeMetrics[mName]; !ok {
-				//	nodeMetrics[mName] = make(map[runner.MetricsType]any)
-				//}
-				//if _, ok := allMetrics[mName]; !ok {
-				//	allMetrics[mName] = make(map[runner.MetricsType]any)
-				//}
 				switch tmr.Type {
 				case runner.DURATION:
 					nodeM, _ := tmr.Result.AsDuration()
