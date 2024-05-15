@@ -42,26 +42,33 @@ func testMetrics() model.Test {
 						Name: runner.MetricsCreateRunName,
 						Config: model.ToScenarioConfig(&runner.MetricsCreateCfg{
 							Metrics: map[runner.MetricsType][]string{
-								runner.DURATION: {"testPauseTO"},
-								runner.RPS:      {"testPauseRPS"},
+								runner.DURATION: {"testTO"},
+								runner.RPS:      {"testRPS", "testDurRPS"},
 							},
 						}),
 					},
 					{
 						Name: runner.RepeatRunName,
 						Config: model.ToScenarioConfig(&runner.RepeatCfg{
-							Count:    10,
+							Count:    100,
 							Executor: runner.ParallelRunName,
 							Action: model.Scenario{
 								Name: runner.SequenceRunName,
 								Config: model.ToScenarioConfig(&runner.SequenceCfg{
-									TimeoutMetricName: "testPauseTO",
-									RpsMetricName:     "testPauseRPS",
+									StepTimeoutMetric: "testTO",
+									StepRpsMetric:     "testRPS",
+									StepRpsDistMetric: "testDurRPS",
 									Steps: []model.Scenario{
 										{
 											Name: runner.PauseRunName,
 											Config: model.ToScenarioConfig(&runner.PauseCfg{
-												Value: "0.3s",
+												Value: "0.1s",
+											}),
+										},
+										{
+											Name: runner.PauseRunName,
+											Config: model.ToScenarioConfig(&runner.PauseCfg{
+												Value: "0.2s",
 											}),
 										},
 									},
@@ -73,7 +80,7 @@ func testMetrics() model.Test {
 					{
 						Name: runner.MetricsFixRunName,
 						Config: model.ToScenarioConfig(&runner.MetricsFixCfg{
-							Metrics: []string{"testPauseTO", "testPauseRPS"},
+							Metrics: []string{"testTO", "testRPS", "testDurRPS"},
 						}),
 					},
 				},

@@ -100,7 +100,7 @@ func (r *metricsFix) run(ctx context.Context, config *model.ScenarioConfig) (don
 		case RPS:
 			if metric, ok := GetRateMetric(ctx, mName); ok {
 				metric = metric.Copy()
-				r.exec.Logger.Infof("Metric %q: rate %.2f in sec", mName, metric.Rate())
+				r.exec.Logger.Infof("Metric %q: %s", mName, metric)
 				result[mName] = MetricValue{Value: metric, Type: mValue.Type}
 			}
 		case STRING:

@@ -3,6 +3,7 @@ package metrics
 import (
 	"fmt"
 	"github.com/solarisdb/solaris/golibs/container"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,6 +12,7 @@ import (
 )
 
 type (
+	// Scalar is a gauge metric that could be increased/decreased
 	Scalar[T Number] struct {
 		total atomic.Value //int64
 		sum   atomic.Value //T
@@ -21,16 +23,18 @@ type (
 		value atomic.Value
 	}
 
+	// Rate is a histogram metric
 	Rate struct {
 		scale   time.Duration
-		lock    sync.Mutex
 		samples []*RateSample
+
+		lock sync.Mutex
 	}
 
 	RateSample struct {
-		Start    time.Time     `yaml:"start" json:"start"`
-		Value    float64       `yaml:"value,omitempty" json:"values,omitempty"`
-		Duration time.Duration `yaml:"duration,omitempty" json:"duration,omitempty"`
+		Start    int64         `yaml:"s" json:"s"`
+		Value    float64       `yaml:"v,omitempty" json:"v,omitempty"`
+		Duration time.Duration `yaml:"d,omitempty" json:"d,omitempty"`
 	}
 
 	Number interface {
@@ -116,10 +120,10 @@ func (s *Rate) Add(value float64, duration time.Duration) {
 	}
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.samples = addSamples(s.samples, newSamples)
+	s.samples = mergeSamples(s.samples, newSamples, s.scale)
 }
 
-func addSamples(to, from []*RateSample) []*RateSample {
+func mergeSamples(to, from []*RateSample, scale time.Duration) []*RateSample {
 	fromIndx := len(from)
 	toIndx := len(to)
 	for {
@@ -134,12 +138,12 @@ func addSamples(to, from []*RateSample) []*RateSample {
 			merged := RateSample{
 				Start:    to[toIndx-1].Start,
 				Value:    to[toIndx-1].Value + from[fromIndx-1].Value,
-				Duration: to[toIndx-1].Duration + from[fromIndx-1].Duration,
+				Duration: min(to[toIndx-1].Duration+from[fromIndx-1].Duration, scale),
 			}
 			to[toIndx-1] = &merged
 			fromIndx--
 			toIndx--
-		} else if to[toIndx-1].Start.Before(from[fromIndx-1].Start) {
+		} else if to[toIndx-1].Start < (from[fromIndx-1].Start) {
 			to = append(to[:toIndx], to[toIndx-1:]...)
 			to[toIndx] = from[fromIndx-1]
 			fromIndx--
@@ -159,10 +163,13 @@ func (s *Rate) calc(value float64, start, end time.Time) []*RateSample {
 		left := maxTime(i, start)
 		right := minTime(i.Add(s.scale), end)
 		sampleValDur := right.Sub(left)
-		part := float64(sampleValDur.Nanoseconds()) / float64(allDuration.Nanoseconds())
+		part := 1.0
+		if sampleValDur != allDuration {
+			part = float64(sampleValDur.Nanoseconds()) / float64(allDuration.Nanoseconds())
+		}
 		result = append(result, &RateSample{
-			Start:    i,
-			Value:    value * part / float64(sampleValDur),
+			Start:    i.UnixNano() / int64(s.scale),
+			Value:    value * part,
 			Duration: sampleValDur,
 		})
 	}
@@ -186,10 +193,37 @@ func (s *Rate) Rate() float64 {
 	var sum float64
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	for _, sm := range s.samples {
-		sum += sm.Value
+	if len(s.samples) == 0 {
+		return math.NaN()
 	}
-	return sum / float64(len(s.samples)) * float64(s.scale)
+	withDur := s.samples[0].Duration > 0
+	for _, sm := range s.samples {
+		if withDur {
+			sum += sm.Value / float64(sm.Duration) * float64(s.scale)
+		} else {
+			sum += sm.Value
+		}
+	}
+	return sum / float64(len(s.samples))
+}
+
+func (s *Rate) IntervalRate() float64 {
+	var sum float64
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if len(s.samples) == 0 {
+		return math.NaN()
+	}
+	withDur := s.samples[0].Duration > 0
+	for _, sm := range s.samples {
+		if withDur {
+			sum += sm.Value / float64(sm.Duration) * float64(s.scale)
+		} else {
+			sum += sm.Value
+		}
+	}
+	distance := max(1, s.samples[len(s.samples)-1].Start-s.samples[0].Start)
+	return sum / float64(distance)
 }
 
 func (s *Rate) Copy() *Rate {
@@ -262,7 +296,7 @@ func (o1 IntMetricResult) Merge(o2 IntMetricResult) IntMetricResult {
 
 func (o1 RateMetricResult) Merge(o2 RateMetricResult) RateMetricResult {
 	var res RateMetricResult
-	res.Samples = addSamples(container.SliceCopy(o1.Samples), container.SliceCopy(o2.Samples))
+	res.Samples = mergeSamples(container.SliceCopy(o1.Samples), container.SliceCopy(o2.Samples), o1.Scale)
 	return res
 }
 
@@ -323,5 +357,18 @@ func (mr StringMetricResult) String() string {
 }
 
 func (mr RateMetricResult) String() string {
-	return fmt.Sprintf("{rate: %.2f}", FromRateMetricResult(mr).Rate())
+	return FromRateMetricResult(mr).String()
+}
+
+func (r Rate) String() string {
+	var scaleStr string
+	switch r.scale {
+	case time.Second:
+		scaleStr = "in sec"
+	case time.Millisecond:
+		scaleStr = "in millis"
+	case time.Minute:
+		scaleStr = "in min"
+	}
+	return fmt.Sprintf("{mean rate: %.2f %s, mean interval rate: %.2f %s}", r.Rate(), scaleStr, r.IntervalRate(), scaleStr)
 }

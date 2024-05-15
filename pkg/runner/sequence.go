@@ -25,8 +25,11 @@ type (
 	SequenceCfg struct {
 		SkipErrors        bool             `yaml:"skipErrors,omitempty" json:"skipErrors,omitempty"`
 		Steps             []model.Scenario `yaml:"steps" json:"steps"`
-		TimeoutMetricName string           `yaml:"timeoutMetric,omitempty" json:"timeoutMetric,omitempty"`
-		RpsMetricName     string           `yaml:"rpsMetric,omitempty" json:"rpsMetric,omitempty"`
+		StepTimeoutMetric string           `yaml:"stepTimeoutMetric,omitempty" json:"stepTimeoutMetric,omitempty"`
+		// how many times a step is called per second
+		StepRpsMetric string `yaml:"stepRpsMetric,omitempty" json:"stepRpsMetric,omitempty"`
+		// steps rps distribution
+		StepRpsDistMetric string `yaml:"stepRpsDistMetric,omitempty" json:"stepRpsDistMetric,omitempty"`
 	}
 
 	seqScenarioResult struct {
@@ -89,8 +92,9 @@ func (r *sequenceRunner) run(mctx context.Context, config *model.ScenarioConfig)
 			doneCh <- &staticScenarioResult{mctx, fmt.Errorf("failed to get runner for step \"%s\" index[%d]: %w", step.Name, indx, errors.ErrNotExist)}
 			return
 		}
-		timeOutM, _ := GetDurationMetric(ctx, cfg.TimeoutMetricName)
-		rpsM, _ := GetRateMetric(ctx, cfg.RpsMetricName)
+		timeOutM, _ := GetDurationMetric(ctx, cfg.StepTimeoutMetric)
+		rpsM, _ := GetRateMetric(ctx, cfg.StepRpsMetric)
+		durRpsM, _ := GetRateMetric(ctx, cfg.StepRpsDistMetric)
 		start := time.Now()
 		stepResCh := stepRunner.New(r.name).RunScenario(ctx, step.Config)
 		stepRes = append(stepRes, <-stepResCh)
@@ -99,7 +103,10 @@ func (r *sequenceRunner) run(mctx context.Context, config *model.ScenarioConfig)
 			timeOutM.Add(dur.Nanoseconds())
 		}
 		if rpsM != nil {
-			rpsM.Add(1, dur)
+			rpsM.Add(1, 0)
+		}
+		if durRpsM != nil {
+			durRpsM.Add(1, dur)
 		}
 		lastSeqStepRes = newSeqScenarioResult(stepRes, r, cfg.SkipErrors)
 		ctx = lastSeqStepRes.Ctx(mctx)
