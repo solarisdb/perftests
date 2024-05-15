@@ -100,7 +100,7 @@ func (r *pauseScenarioResult) Ctx(ctx context.Context) context.Context {
 	}
 	counter = counter.(int) + 1
 	ctx = context.WithValue(ctx, pauseRunnersCounter, counter)
-	fmt.Println("print counter: ", counter)
+	//fmt.Println("print counter: ", counter)
 	return ctx
 }
 

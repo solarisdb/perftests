@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/solarisdb/perftests/pkg/model"
 	"github.com/solarisdb/solaris/golibs/container"
@@ -22,8 +23,10 @@ type (
 	}
 
 	SequenceCfg struct {
-		SkipErrors bool             `yaml:"skipErrors,omitempty" json:"skipErrors,omitempty"`
-		Steps      []model.Scenario `yaml:"steps" json:"steps"`
+		SkipErrors        bool             `yaml:"skipErrors,omitempty" json:"skipErrors,omitempty"`
+		Steps             []model.Scenario `yaml:"steps" json:"steps"`
+		TimeoutMetricName string           `yaml:"timeoutMetric,omitempty" json:"timeoutMetric,omitempty"`
+		RpsMetricName     string           `yaml:"rpsMetric,omitempty" json:"rpsMetric,omitempty"`
 	}
 
 	seqScenarioResult struct {
@@ -86,8 +89,18 @@ func (r *sequenceRunner) run(mctx context.Context, config *model.ScenarioConfig)
 			doneCh <- &staticScenarioResult{mctx, fmt.Errorf("failed to get runner for step \"%s\" index[%d]: %w", step.Name, indx, errors.ErrNotExist)}
 			return
 		}
+		timeOutM, _ := GetDurationMetric(ctx, cfg.TimeoutMetricName)
+		rpsM, _ := GetRateMetric(ctx, cfg.RpsMetricName)
+		start := time.Now()
 		stepResCh := stepRunner.New(r.name).RunScenario(ctx, step.Config)
 		stepRes = append(stepRes, <-stepResCh)
+		dur := time.Since(start)
+		if timeOutM != nil {
+			timeOutM.Add(dur.Nanoseconds())
+		}
+		if rpsM != nil {
+			rpsM.Add(1, dur)
+		}
 		lastSeqStepRes = newSeqScenarioResult(stepRes, r, cfg.SkipErrors)
 		ctx = lastSeqStepRes.Ctx(mctx)
 		if stepErr := lastSeqStepRes.Error(); stepErr != nil {

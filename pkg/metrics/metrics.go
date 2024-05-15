@@ -2,6 +2,8 @@ package metrics
 
 import (
 	"fmt"
+	"github.com/solarisdb/solaris/golibs/container"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -20,9 +22,15 @@ type (
 	}
 
 	Rate struct {
-		scale time.Duration
-		dur   atomic.Value //time.Duration
-		sum   atomic.Value //float64
+		scale   time.Duration
+		lock    sync.Mutex
+		samples []*RateSample
+	}
+
+	RateSample struct {
+		Start    time.Time     `yaml:"start" json:"start"`
+		Value    float64       `yaml:"value,omitempty" json:"values,omitempty"`
+		Duration time.Duration `yaml:"duration,omitempty" json:"duration,omitempty"`
 	}
 
 	Number interface {
@@ -47,9 +55,8 @@ type (
 	}
 
 	RateMetricResult struct {
-		Scale time.Duration `yaml:"scale" json:"scale"`
-		Total time.Duration `yaml:"total" json:"total"`
-		Sum   float64       `yaml:"sum" json:"sum"`
+		Scale   time.Duration `yaml:"scale" json:"scale"`
+		Samples []*RateSample `yaml:"samples" json:"samples"`
 	}
 )
 
@@ -95,43 +102,100 @@ func (s *Scalar[T]) Copy() *Scalar[T] {
 
 func NewRate(scale time.Duration) *Rate {
 	s := new(Rate)
-	var t float64
 	s.scale = scale
-	s.dur.Store(time.Duration(0))
-	s.sum.Store(t)
 	return s
 }
 
 func (s *Rate) Add(value float64, duration time.Duration) {
-	total := s.dur.Load().(time.Duration)
-	for !s.dur.CompareAndSwap(total, total+duration) {
-		total = s.dur.Load().(time.Duration)
+	end := time.Now()
+	start := end.Add(-duration)
+	newSamples := s.calc(value, start, end)
+	nIndx := len(newSamples)
+	if nIndx == 0 {
+		return
 	}
-	sum := s.sum.Load().(float64)
-	for !s.sum.CompareAndSwap(sum, sum+value) {
-		sum = s.sum.Load().(float64)
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.samples = addSamples(s.samples, newSamples)
+}
+
+func addSamples(to, from []*RateSample) []*RateSample {
+	fromIndx := len(from)
+	toIndx := len(to)
+	for {
+		if fromIndx == 0 {
+			break
+		}
+		if toIndx == 0 {
+			to = append(from[:fromIndx], to...)
+			break
+		}
+		if to[toIndx-1].Start == from[fromIndx-1].Start {
+			merged := RateSample{
+				Start:    to[toIndx-1].Start,
+				Value:    to[toIndx-1].Value + from[fromIndx-1].Value,
+				Duration: to[toIndx-1].Duration + from[fromIndx-1].Duration,
+			}
+			to[toIndx-1] = &merged
+			fromIndx--
+			toIndx--
+		} else if to[toIndx-1].Start.Before(from[fromIndx-1].Start) {
+			to = append(to[:toIndx], to[toIndx-1:]...)
+			to[toIndx] = from[fromIndx-1]
+			fromIndx--
+		} else {
+			toIndx--
+		}
 	}
+	return to
+}
+
+func (s *Rate) calc(value float64, start, end time.Time) []*RateSample {
+	sampSt := start.Truncate(s.scale)
+	sampEnd := end.Truncate(s.scale)
+	var result []*RateSample
+	allDuration := end.Sub(start)
+	for i := sampSt; !i.After(sampEnd); i = i.Add(s.scale) {
+		left := maxTime(i, start)
+		right := minTime(i.Add(s.scale), end)
+		sampleValDur := right.Sub(left)
+		part := float64(sampleValDur.Nanoseconds()) / float64(allDuration.Nanoseconds())
+		result = append(result, &RateSample{
+			Start:    i,
+			Value:    value * part / float64(sampleValDur),
+			Duration: sampleValDur,
+		})
+	}
+	return result
+}
+
+func minTime(t1, t2 time.Time) time.Time {
+	if t1.Before(t2) {
+		return t1
+	}
+	return t2
+}
+func maxTime(t1, t2 time.Time) time.Time {
+	if t1.Before(t2) {
+		return t2
+	}
+	return t1
 }
 
 func (s *Rate) Rate() float64 {
-	total := s.dur.Load().(time.Duration)
-	sum := s.sum.Load().(float64)
-	return sum / float64(total) * float64(s.scale)
-}
-
-func (s *Rate) Sum() float64 {
-	return s.sum.Load().(float64)
-}
-
-func (s *Rate) Duration() time.Duration {
-	return s.dur.Load().(time.Duration)
+	var sum float64
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	for _, sm := range s.samples {
+		sum += sm.Value
+	}
+	return sum / float64(len(s.samples)) * float64(s.scale)
 }
 
 func (s *Rate) Copy() *Rate {
 	var cp Rate
 	cp.scale = s.scale
-	cp.dur.Store(s.dur.Load())
-	cp.sum.Store(s.sum.Load())
+	cp.samples = container.SliceCopy(s.samples)
 	return &cp
 }
 
@@ -198,8 +262,7 @@ func (o1 IntMetricResult) Merge(o2 IntMetricResult) IntMetricResult {
 
 func (o1 RateMetricResult) Merge(o2 RateMetricResult) RateMetricResult {
 	var res RateMetricResult
-	res.Total = o1.Total + o2.Total
-	res.Sum = o1.Sum + o2.Sum
+	res.Samples = addSamples(container.SliceCopy(o1.Samples), container.SliceCopy(o2.Samples))
 	return res
 }
 
@@ -235,10 +298,16 @@ func GetIntMetricResult(metric *Scalar[int64]) IntMetricResult {
 
 func GetRateMetricResult(metric *Rate) RateMetricResult {
 	var metricResult RateMetricResult
-	metricResult.Total = metric.Duration()
+	metricResult.Samples = container.SliceCopy(metric.samples)
 	metricResult.Scale = metric.scale
-	metricResult.Sum = metric.Sum()
 	return metricResult
+}
+
+func FromRateMetricResult(result RateMetricResult) *Rate {
+	var rate Rate
+	rate.samples = container.SliceCopy(result.Samples)
+	rate.scale = result.Scale
+	return &rate
 }
 
 func (mr DurationMetricResult) String() string {
@@ -254,5 +323,5 @@ func (mr StringMetricResult) String() string {
 }
 
 func (mr RateMetricResult) String() string {
-	return fmt.Sprintf("{rate: %.2f}", mr.Sum/float64(mr.Total)*float64(mr.Scale))
+	return fmt.Sprintf("{rate: %.2f}", FromRateMetricResult(mr).Rate())
 }

@@ -18,13 +18,66 @@ func Test_FRun(t *testing.T) {
 }
 
 func testCfg() *model.Config {
-	lcfg := model.LoggingConfig{Level: "trace"}
+	lcfg := model.LoggingConfig{Level: "info"}
 	return &model.Config{
 		Log: lcfg,
 		Tests: []model.Test{
-			testContextPropagationWithErrors(),
+			//testContextPropagationWithErrors(),
 			//testContextPropagation(),
 			//testErrors(),
+			testMetrics(),
+		},
+	}
+}
+
+func testMetrics() model.Test {
+	return model.Test{
+		Name: fmt.Sprintf("Test errors"),
+		Scenario: model.Scenario{
+			Name: runner.SequenceRunName,
+			Config: model.ToScenarioConfig(&runner.SequenceCfg{
+				Steps: []model.Scenario{
+					// init metrics
+					{
+						Name: runner.MetricsCreateRunName,
+						Config: model.ToScenarioConfig(&runner.MetricsCreateCfg{
+							Metrics: map[runner.MetricsType][]string{
+								runner.DURATION: {"testPauseTO"},
+								runner.RPS:      {"testPauseRPS"},
+							},
+						}),
+					},
+					{
+						Name: runner.RepeatRunName,
+						Config: model.ToScenarioConfig(&runner.RepeatCfg{
+							Count:    10,
+							Executor: runner.ParallelRunName,
+							Action: model.Scenario{
+								Name: runner.SequenceRunName,
+								Config: model.ToScenarioConfig(&runner.SequenceCfg{
+									TimeoutMetricName: "testPauseTO",
+									RpsMetricName:     "testPauseRPS",
+									Steps: []model.Scenario{
+										{
+											Name: runner.PauseRunName,
+											Config: model.ToScenarioConfig(&runner.PauseCfg{
+												Value: "0.3s",
+											}),
+										},
+									},
+								}),
+							},
+						}),
+					},
+					// fix metrics
+					{
+						Name: runner.MetricsFixRunName,
+						Config: model.ToScenarioConfig(&runner.MetricsFixCfg{
+							Metrics: []string{"testPauseTO", "testPauseRPS"},
+						}),
+					},
+				},
+			}),
 		},
 	}
 }

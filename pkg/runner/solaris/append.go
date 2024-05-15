@@ -31,9 +31,9 @@ type (
 		MessageSize         int    `yaml:"messageSize" json:"messageSize"`
 		BatchSize           int    `yaml:"batchSize" json:"batchSize"`
 		Number              int    `yaml:"number" json:"number"`
-		TimeoutMetricName   string `yaml:"timeoutMetricName" json:"timeoutMetricName"`
-		MsgsRateMetricName  string `yaml:"msgsRateMetricName" json:"msgsRateMetricName"`
-		BytesRateMetricName string `yaml:"bytesRateMetricName" json:"bytesRateMetricName"`
+		TimeoutMetricName   string `yaml:"timeoutMetricName,omitempty" json:"timeoutMetricName,omitempty"`
+		MsgsRateMetricName  string `yaml:"msgsRateMetricName,omitempty" json:"msgsRateMetricName,omitempty"`
+		BytesRateMetricName string `yaml:"bytesRateMetricName,omitempty" json:"bytesRateMetricName,omitempty"`
 	}
 )
 
