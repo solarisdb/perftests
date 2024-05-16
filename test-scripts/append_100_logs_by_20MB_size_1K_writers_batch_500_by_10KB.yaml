@@ -1,7 +1,7 @@
 log:
   level: info
 tests:
-  - name: 'Append to 100 logs (by 1000 writers to each one), write 20.48MB to each log, one append: 500 messages by 10.00KB'
+  - name: 'Append to 100 logs (by 1000 writers to each one), write 20.47MB to each log, one append: 500 messages by 10.00KB'
     scenario:
       name: sequence
       config:
