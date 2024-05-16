@@ -1,7 +1,7 @@
 log:
   level: info
 tests:
-  - name: 'Append to 10 logs (by 1000 writers to each one), write 200.89MB to each log, one append: 500 messages by 1.00KB'
+  - name: 'Append to 1 logs (by 1 writers to each one), write 1.00GB to each log, one append: 500 messages by 1.00KB'
     scenario:
       name: sequence
       config:
@@ -31,7 +31,7 @@ tests:
                         - QueryBytesInSec
                 - name: repeat
                   config:
-                    count: 10
+                    count: 1
                     action:
                       name: sequence
                       config:
@@ -42,13 +42,13 @@ tests:
                                 logName: foo
                           - name: repeat
                             config:
-                              count: 1000
+                              count: 1
                               action:
                                 name: solaris.append
                                 config:
                                   messageSize: 1024
                                   batchSize: 500
-                                  number: 0
+                                  number: 2097
                                   timeoutMetricName: AppendTimeout
                                   msgsRateMetricName: AppendMsgsInSec
                                   bytesRateMetricName: AppendBytesInSec
