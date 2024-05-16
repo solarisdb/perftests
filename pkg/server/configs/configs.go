@@ -54,7 +54,7 @@ func LoadFromEnvVars() (model.Config, error) {
 
 // Merge updates all empty properties of dest config with the properties of src config
 func Merge(dest, src *model.Config) error {
-	return mergo.Merge(dest, src)
+	return mergo.Merge(dest, src, mergo.WithAppendSlice)
 }
 
 func ToYml(c *model.Config) ([]byte, error) {

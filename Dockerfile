@@ -19,5 +19,6 @@ RUN chmod +x /bin/grpc_health_probe
 WORKDIR /app
 
 COPY --from=builder /usr/src/build/perftests .
+COPY --from=builder /usr/src/test-scripts/* ./test-scripts/
 
 CMD exec /app/perftests start $PERFTEST_CFG_FILES

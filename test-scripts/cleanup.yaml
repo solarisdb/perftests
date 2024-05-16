@@ -1,7 +1,7 @@
 log:
-  level: info
+  level: ""
 tests:
-  - name: Cleanup cluster PERFTESTS_RUN_ID
+  - name: Cleanup cluster
     scenario:
       name: sequence
       config:

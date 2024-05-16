@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/solarisdb/perftests/pkg/utils"
 	"math"
 
 	"github.com/solarisdb/perftests/pkg/model"
@@ -26,54 +27,85 @@ const queryToMetricName = "QueryTimeout"
 const queryMsgsPerSecMetricName = "QueryMsgsInSec"
 const queryBytesPerSecMetricName = "QueryBytesInSec"
 
-func GetDefaultConfig() *model.Config {
-	//return buildAppendToManyLogsTests()
-	// one appender writes to one log 10000 messages by 1K and then
-	// one reader reads the log
-	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, 2500, 1, 10, 1, int(math.Pow(float64(2), float64(10))), 1, 100, -1)
-	return &model.Config{
-		Log: model.LoggingConfig{Level: "info"},
-		Tests: []model.Test{
-			*test,
-		},
+type (
+	OpType    string
+	AppendCfg struct {
+		// ConcurrentLogs - how many logs are written concurrently
+		ConcurrentLogs int
+		// LogSize - how many data should be written to one log
+		LogSize int
+		// WritersForOneLog - how many writers to one log work concurrently
+		WritersForOneLog int
+		// BatchSize - how many records are written by one Append call
+		BatchSize int
+		// MsgSize - message size in bytes
+		MsgSize int
 	}
+)
+
+const (
+	Append  OpType = "append"
+	Cleanup OpType = "cleanup"
+	Sleep   OpType = "sleep"
+)
+
+func BuildConfig(opType OpType, params any) *model.Config {
+	switch opType {
+	case Append:
+		cfg, _ := params.(*AppendCfg)
+		return buildAppendToManyLogsTests(cfg)
+	case Cleanup:
+		return &model.Config{
+			Tests: []model.Test{*cleanupCluster()},
+		}
+	case Sleep:
+		return &model.Config{
+			Tests: []model.Test{*pause()},
+		}
+	}
+	return &model.Config{}
 }
 
 func cleanupCluster() *model.Test {
 	scenario := clusterCleanup(defaultEnvRunID, defaultAddress, defaultEnvVarAddress)
 	return &model.Test{
-		Name:     fmt.Sprintf("Cleanup cluster %s", defaultEnvRunID),
+		Name:     fmt.Sprintf("Cleanup cluster"),
 		Scenario: *scenario,
 	}
 }
 
-func buildAppendToManyLogsTests() *model.Config {
-	//test0 := cleanupCluster()
-	concLogs := 100000
-	writers := 1
-	data := 10 * oneGB
-	// append to 10K logs (one log one writer), write 10GB data by 1kB messages
-	test1 := appendToManyLogs(concLogs, writers, data, 1*oneKb)
-	// append to 10K logs (one log one writer), write 10MB data by 10kB messages
-	test2 := appendToManyLogs(concLogs, writers, data, 10*oneKb)
-	// append to 10K logs (one log one writer), write 10MB data by 100kB messages
-	test3 := appendToManyLogs(concLogs, writers, data, 100*oneKb)
+func pause() *model.Test {
+	scenario := &model.Scenario{
+		Name: runner.PauseRunName,
+		Config: model.ToScenarioConfig(&runner.PauseCfg{
+			Value: "10000h",
+		}),
+	}
+	return &model.Test{
+		Name:     fmt.Sprintf("Sleep..."),
+		Scenario: *scenario,
+	}
+}
+
+func buildAppendToManyLogsTests(cfg *AppendCfg) *model.Config {
 	return &model.Config{
 		Log: model.LoggingConfig{Level: defLogLevel},
 		Tests: []model.Test{
-			//*test0,
-			*test1,
-			*test2,
-			*test3,
+			*appendToManyLogs(cfg.ConcurrentLogs, cfg.WritersForOneLog, cfg.LogSize, cfg.BatchSize, cfg.MsgSize),
 		},
 	}
 }
 
-// appendToManyLogs appends to concurrentLogs logs (for one log one writer), write totalSize data by oneStep size of messages
-func appendToManyLogs(concurrentLogs, writers int, totalSize, oneStep int) *model.Test {
-	appendsToLog := totalSize / oneStep
-	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, concurrentLogs, writers, appendsToLog, 1, oneStep, 0, 100, -1)
-	test.Name = fmt.Sprintf("Append to %d logs, write %s to each one, one message size %s", concurrentLogs, humanReadableSize(totalSize), humanReadableSize(oneStep))
+// appendToManyLogs appends to concurrentLogs logs
+func appendToManyLogs(concurrentLogs, writers int, logSize, batchSize, oneStep int) *model.Test {
+	appendsToLog := logSize / writers / oneStep / batchSize
+	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, concurrentLogs, writers, appendsToLog, batchSize, oneStep, 0, 100, -1)
+	test.Name = fmt.Sprintf("Append to %d logs (by %d writers to each one), write %s to each log, one append: %d messages by %s",
+		concurrentLogs,
+		writers,
+		utils.HumanReadableBytes(float64(logSize)),
+		batchSize,
+		utils.HumanReadableBytes(float64(oneStep)))
 	return test
 }
 
@@ -267,24 +299,4 @@ func readConcurrently(logReaders, queryStep, queriesNumber int, toMetricName, qu
 			},
 		}),
 	}
-}
-
-var sizes = []string{"B", "kB", "MB", "GB", "TB", "PB", "EB"}
-
-func humanReadableSize(origSize int) string {
-	base := 1024.0
-	unitsLimit := len(sizes)
-	i := 0
-	size := float64(origSize)
-	for size >= base && i < unitsLimit {
-		size = size / base
-		i++
-	}
-
-	f := "%.0f %s"
-	if i > 1 {
-		f = "%.2f %s"
-	}
-
-	return fmt.Sprintf(f, size, sizes[i])
 }
