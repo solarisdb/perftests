@@ -72,3 +72,6 @@
 # generate append to 100 log 1MB size by 100 writer, batch 1 by 100B
 ./build/perftests generateCfg auto append 100 1024000 100 1 100
 #------------------
+# generate append to 200 log 1MB size by 100 writer, batch 1 by 100B
+./build/perftests generateCfg auto append 200 1024000 100 1 100
+#------------------
