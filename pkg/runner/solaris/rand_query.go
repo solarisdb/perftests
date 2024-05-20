@@ -114,11 +114,12 @@ func (r *randQueryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (
 		doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to read first record: %w", err))
 		return
 	}
+	maxID, _ := maxULID()
 	fromID := res.Records[0].ID
 	req = &solaris.QueryRecordsRequest{
 		LogIDs:        []string{log},
 		Limit:         1,
-		StartRecordID: "_",
+		StartRecordID: maxID,
 		Descending:    true,
 	}
 	res, err = clnt.QueryRecords(ctx, req)
@@ -174,9 +175,17 @@ func (r *randQueryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (
 func randULID(from, to time.Time) (string, error) {
 	randMillis := rand.Int63n(to.Sub(from).Milliseconds())
 	next := from.Add(time.Millisecond * time.Duration(randMillis))
-	createdCaseUlid := ulidutils.New()
-	if err := createdCaseUlid.SetTime(ulid.Timestamp(next)); err != nil {
+	randID := ulidutils.New()
+	if err := randID.SetTime(ulid.Timestamp(next)); err != nil {
 		return *new(string), err
 	}
-	return createdCaseUlid.String(), nil
+	return randID.String(), nil
+}
+
+func maxULID() (string, error) {
+	maxID := ulidutils.New()
+	if err := maxID.SetTime(ulid.MaxTime()); err != nil {
+		return *new(string), err
+	}
+	return maxID.String(), nil
 }
