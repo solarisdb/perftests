@@ -1,0 +1,91 @@
+log:
+  level: ""
+tests:
+  - name: 'Seq read 1 logs (by 1 readers from each one), read 2.00GB by each reader sequentially from earliest to lates, one query: 100 messages by 100.00KB'
+    scenario:
+      name: sequence
+      config:
+        steps:
+          - name: cluster.connect
+            config:
+              address: localhost:50051
+              envVarAddress: PERFTESTS_SOLARIS_ADDRESS
+              envRunID: PERFTESTS_RUN_ID
+          - name: sequence
+            config:
+              steps:
+                - name: solaris.connect
+                  config:
+                    address: localhost:50051
+                    envVarAddress: PERFTESTS_SOLARIS_ADDRESS
+                - name: metricsCreate
+                  config:
+                    metrics:
+                      DURATION:
+                        - AppendTimeout
+                        - QueryTimeout
+                      RPS:
+                        - AppendMsgsInSec
+                        - AppendBytesInSec
+                        - QueryMsgsInSec
+                        - QueryBytesInSec
+                - name: repeat
+                  config:
+                    count: 1
+                    action:
+                      name: sequence
+                      config:
+                        steps:
+                          - name: solaris.createLog
+                            config:
+                              tags:
+                                logName: foo
+                          - name: repeat
+                            config:
+                              count: 1
+                              action:
+                                name: solaris.append
+                                config:
+                                  messageSize: 102400
+                                  batchSize: 512
+                                  number: 40
+                                  timeoutMetricName: AppendTimeout
+                                  msgsRateMetricName: AppendMsgsInSec
+                                  bytesRateMetricName: AppendBytesInSec
+                              executor: parallel
+                          - name: repeat
+                            config:
+                              count: 1
+                              action:
+                                name: solaris.queryMsgs
+                                config:
+                                  step: 100
+                                  number: 209
+                                  timeoutMetricName: QueryTimeout
+                                  msgsRateMetricName: QueryMsgsInSec
+                                  bytesRateMetricName: QueryBytesInSec
+                              executor: parallel
+                          - name: solaris.deleteLog
+                    executor: parallel
+                - name: metricsFix
+                  config:
+                    metrics:
+                      - AppendTimeout
+                      - QueryTimeout
+                      - AppendMsgsInSec
+                      - AppendBytesInSec
+                      - QueryMsgsInSec
+                      - QueryBytesInSec
+          - name: cluster.finish
+            config:
+              metrics:
+                DURATION:
+                  - AppendTimeout
+                  - QueryTimeout
+                RPS:
+                  - AppendMsgsInSec
+                  - AppendBytesInSec
+                  - QueryMsgsInSec
+                  - QueryBytesInSec
+              await: true
+          - name: cluster.delete
