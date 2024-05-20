@@ -110,7 +110,7 @@ func (r *randQueryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (
 		StartRecordID: "",
 	}
 	res, err := clnt.QueryRecords(ctx, req)
-	if len(res.Records) == 0 {
+	if err != nil || len(res.Records) == 0 {
 		doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to read first record: %w", err))
 		return
 	}
@@ -119,9 +119,10 @@ func (r *randQueryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (
 		LogIDs:        []string{log},
 		Limit:         1,
 		StartRecordID: "_",
+		Descending:    true,
 	}
 	res, err = clnt.QueryRecords(ctx, req)
-	if len(res.Records) == 0 {
+	if err != nil || len(res.Records) == 0 {
 		doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to read last record: %w", err))
 		return
 	}
