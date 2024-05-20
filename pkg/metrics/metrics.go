@@ -223,7 +223,7 @@ func (s *Rate) IntervalRate() float64 {
 			sum += sm.Value
 		}
 	}
-	distance := max(1, s.samples[len(s.samples)-1].Start-s.samples[0].Start)
+	distance := s.samples[len(s.samples)-1].Start - s.samples[0].Start + 1
 	return sum / float64(distance)
 }
 

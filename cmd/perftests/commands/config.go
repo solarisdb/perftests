@@ -48,6 +48,25 @@ var generateCfgCmd = &cobra.Command{
 		case "cleanup":
 			autoFileName = "test-scripts/cleanup.yaml"
 			cfg = server.BuildConfig(server.Cleanup, nil)
+		case "seq_query":
+			concLogs, _ := strconv.Atoi(args[2])
+			logSize, _ := strconv.Atoi(args[3])
+			readers, _ := strconv.Atoi(args[4])
+			queryStep, _ := strconv.Atoi(args[5])
+			msg, _ := strconv.Atoi(args[6])
+			cfg = server.BuildConfig(server.SeqQuery, &server.QueryCfg{
+				ConcurrentLogs:    concLogs,
+				LogSize:           logSize,
+				ReadersFromOneLog: readers,
+				QueryStep:         queryStep,
+				MsgSize:           msg,
+			})
+			autoFileName = fmt.Sprintf("test-scripts/seq_query_%s_logs_by_%s_size_%s_readers_batch_%s_by_%s.yaml",
+				utils.HumanReadableSizePrecision(float64(concLogs), 0),
+				utils.HumanReadableBytesPrecision(float64(logSize), 0),
+				utils.HumanReadableSizePrecision(float64(readers), 0),
+				utils.HumanReadableSizePrecision(float64(queryStep), 0),
+				utils.HumanReadableBytesPrecision(float64(msg), 0))
 		}
 
 		jsCfg, err := configs.ToJson(cfg)

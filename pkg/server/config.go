@@ -41,12 +41,25 @@ type (
 		// MsgSize - message size in bytes
 		MsgSize int
 	}
+	QueryCfg struct {
+		// ConcurrentLogs - how many logs are read concurrently
+		ConcurrentLogs int
+		// LogSize - how many data should be read from one log
+		LogSize int
+		// ReadersFromOneLog - how many writers to one log work concurrently
+		ReadersFromOneLog int
+		// QueryStep - how many records are written by one Append call
+		QueryStep int
+		// MsgSize - message size in bytes
+		MsgSize int
+	}
 )
 
 const (
-	Append  OpType = "append"
-	Cleanup OpType = "cleanup"
-	Sleep   OpType = "sleep"
+	Append   OpType = "append"
+	Cleanup  OpType = "cleanup"
+	Sleep    OpType = "sleep"
+	SeqQuery OpType = "seq_query"
 )
 
 func BuildConfig(opType OpType, params any) *model.Config {
@@ -62,6 +75,9 @@ func BuildConfig(opType OpType, params any) *model.Config {
 		return &model.Config{
 			Tests: []model.Test{*pause()},
 		}
+	case SeqQuery:
+		cfg, _ := params.(*QueryCfg)
+		return buildQueryLogsTests(cfg)
 	}
 	return &model.Config{}
 }
@@ -87,6 +103,14 @@ func pause() *model.Test {
 	}
 }
 
+func buildQueryLogsTests(cfg *QueryCfg) *model.Config {
+	return &model.Config{
+		Tests: []model.Test{
+			*fillAndSeqReadManyLogs(cfg.ConcurrentLogs, cfg.ReadersFromOneLog, cfg.LogSize, cfg.QueryStep, cfg.MsgSize),
+		},
+	}
+}
+
 func buildAppendToManyLogsTests(cfg *AppendCfg) *model.Config {
 	return &model.Config{
 		Log: model.LoggingConfig{Level: defLogLevel},
@@ -94,6 +118,25 @@ func buildAppendToManyLogsTests(cfg *AppendCfg) *model.Config {
 			*appendToManyLogs(cfg.ConcurrentLogs, cfg.WritersForOneLog, cfg.LogSize, cfg.BatchSize, cfg.MsgSize),
 		},
 	}
+}
+
+// fillAndSeqReadManyLogs fills then reads logs
+func fillAndSeqReadManyLogs(concurrentLogs, readers int, logSize, queryStep, msgSize int) *model.Test {
+	appendBatchSize := 50 * oneMB
+	batchSize := appendBatchSize / msgSize
+	appendsToLog := logSize / msgSize / batchSize
+	readCount := logSize / queryStep / msgSize
+	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress,
+		concurrentLogs,
+		1, appendsToLog, batchSize, msgSize,
+		readers, queryStep, readCount)
+	test.Name = fmt.Sprintf("Seq read %d logs (by %d readers from each one), read %s by each reader sequentially from earliest to lates, one query: %d messages by %s",
+		concurrentLogs,
+		readers,
+		utils.HumanReadableBytes(float64(logSize)),
+		queryStep,
+		utils.HumanReadableBytes(float64(msgSize)))
+	return test
 }
 
 // appendToManyLogs appends to concurrentLogs logs
