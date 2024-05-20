@@ -76,7 +76,7 @@
 ./build/perftests generateCfg auto append 200 1024000 100 1 100
 #------------------
 
-
-# generate seq query from 1 logs 100GB size by 1 readers, batch 100 by 1KB
-./build/perftests generateCfg auto seq_query 1 107374182400 1 100 1024
+# 1GB=1073741824
+# generate seq query from 1 logs 2GB size by 1 readers, batch 100 by 1KB
+./build/perftests generateCfg auto seq_query 1 2143741824 1 100 1024
 #------------------
