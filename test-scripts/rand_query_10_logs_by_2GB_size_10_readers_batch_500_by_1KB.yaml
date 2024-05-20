@@ -1,7 +1,7 @@
 log:
-  level: info
+  level: ""
 tests:
-  - name: 'Append to 10 logs (by 1000 writers to each one), write 102.40MB to each log, one append: 500 messages by 10.00KB'
+  - name: 'Rand read 10 logs (by 10 readers from each one), read 2.00GB by each reader sequentially from earliest to lates, one query: 500 messages by 1.00KB'
     scenario:
       name: sequence
       config:
@@ -42,24 +42,25 @@ tests:
                                 logName: foo
                           - name: repeat
                             config:
-                              count: 1000
+                              count: 1
                               action:
                                 name: solaris.append
                                 config:
-                                  messageSize: 10240
-                                  batchSize: 500
-                                  number: 0
+                                  messageSize: 1024
+                                  batchSize: 51200
+                                  number: 40
                                   timeoutMetricName: AppendTimeout
                                   msgsRateMetricName: AppendMsgsInSec
                                   bytesRateMetricName: AppendBytesInSec
                               executor: parallel
                           - name: repeat
                             config:
+                              count: 10
                               action:
-                                name: solaris.seqQueryMsgs
+                                name: solaris.randQueryMsgs
                                 config:
-                                  step: 100
-                                  number: -1
+                                  step: 500
+                                  number: 4186
                                   timeoutMetricName: QueryTimeout
                                   msgsRateMetricName: QueryMsgsInSec
                                   bytesRateMetricName: QueryBytesInSec

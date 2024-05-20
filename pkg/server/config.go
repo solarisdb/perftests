@@ -41,14 +41,15 @@ type (
 		// MsgSize - message size in bytes
 		MsgSize int
 	}
+
 	QueryCfg struct {
 		// ConcurrentLogs - how many logs are read concurrently
 		ConcurrentLogs int
 		// LogSize - how many data should be read from one log
 		LogSize int
-		// ReadersFromOneLog - how many writers to one log work concurrently
+		// ReadersFromOneLog - how many readers reads one log concurrently
 		ReadersFromOneLog int
-		// QueryStep - how many records are written by one Append call
+		// QueryStep - how many records are read by one Query call
 		QueryStep int
 		// MsgSize - message size in bytes
 		MsgSize int
@@ -56,10 +57,11 @@ type (
 )
 
 const (
-	Append   OpType = "append"
-	Cleanup  OpType = "cleanup"
-	Sleep    OpType = "sleep"
-	SeqQuery OpType = "seq_query"
+	Append    OpType = "append"
+	Cleanup   OpType = "cleanup"
+	Sleep     OpType = "sleep"
+	SeqQuery  OpType = "seq_query"
+	RandQuery OpType = "rand_query"
 )
 
 func BuildConfig(opType OpType, params any) *model.Config {
@@ -77,7 +79,10 @@ func BuildConfig(opType OpType, params any) *model.Config {
 		}
 	case SeqQuery:
 		cfg, _ := params.(*QueryCfg)
-		return buildQueryLogsTests(cfg)
+		return buildSeqQueryLogsTests(cfg)
+	case RandQuery:
+		cfg, _ := params.(*QueryCfg)
+		return buildRandQueryLogsTests(cfg)
 	}
 	return &model.Config{}
 }
@@ -103,10 +108,18 @@ func pause() *model.Test {
 	}
 }
 
-func buildQueryLogsTests(cfg *QueryCfg) *model.Config {
+func buildSeqQueryLogsTests(cfg *QueryCfg) *model.Config {
 	return &model.Config{
 		Tests: []model.Test{
 			*fillAndSeqReadManyLogs(cfg.ConcurrentLogs, cfg.ReadersFromOneLog, cfg.LogSize, cfg.QueryStep, cfg.MsgSize),
+		},
+	}
+}
+
+func buildRandQueryLogsTests(cfg *QueryCfg) *model.Config {
+	return &model.Config{
+		Tests: []model.Test{
+			*fillAndRandReadManyLogs(cfg.ConcurrentLogs, cfg.ReadersFromOneLog, cfg.LogSize, cfg.QueryStep, cfg.MsgSize),
 		},
 	}
 }
@@ -120,6 +133,25 @@ func buildAppendToManyLogsTests(cfg *AppendCfg) *model.Config {
 	}
 }
 
+// fillAndRandReadManyLogs fills then reads logs
+func fillAndRandReadManyLogs(concurrentLogs, readers int, logSize, queryStep, msgSize int) *model.Test {
+	appendBatchSize := 50 * oneMB
+	batchSize := appendBatchSize / msgSize
+	appendsToLog := logSize / msgSize / batchSize
+	readCount := logSize / queryStep / msgSize
+	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress,
+		concurrentLogs,
+		1, appendsToLog, batchSize, msgSize,
+		false, readers, queryStep, readCount)
+	test.Name = fmt.Sprintf("Rand read %d logs (by %d readers from each one), read %s by each reader sequentially from earliest to lates, one query: %d messages by %s",
+		concurrentLogs,
+		readers,
+		utils.HumanReadableBytes(float64(logSize)),
+		queryStep,
+		utils.HumanReadableBytes(float64(msgSize)))
+	return test
+}
+
 // fillAndSeqReadManyLogs fills then reads logs
 func fillAndSeqReadManyLogs(concurrentLogs, readers int, logSize, queryStep, msgSize int) *model.Test {
 	appendBatchSize := 50 * oneMB
@@ -129,7 +161,7 @@ func fillAndSeqReadManyLogs(concurrentLogs, readers int, logSize, queryStep, msg
 	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress,
 		concurrentLogs,
 		1, appendsToLog, batchSize, msgSize,
-		readers, queryStep, readCount)
+		true, readers, queryStep, readCount)
 	test.Name = fmt.Sprintf("Seq read %d logs (by %d readers from each one), read %s by each reader sequentially from earliest to lates, one query: %d messages by %s",
 		concurrentLogs,
 		readers,
@@ -142,7 +174,7 @@ func fillAndSeqReadManyLogs(concurrentLogs, readers int, logSize, queryStep, msg
 // appendToManyLogs appends to concurrentLogs logs
 func appendToManyLogs(concurrentLogs, writers int, logSize, batchSize, oneStep int) *model.Test {
 	appendsToLog := logSize / writers / oneStep / batchSize
-	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, concurrentLogs, writers, appendsToLog, batchSize, oneStep, 0, 100, -1)
+	test := appendToLogsThenQueryTest(defaultEnvRunID, defaultAddress, defaultEnvVarAddress, concurrentLogs, writers, appendsToLog, batchSize, oneStep, true, 0, 100, -1)
 	test.Name = fmt.Sprintf("Append to %d logs (by %d writers to each one), write %s to each log, one append: %d messages by %s",
 		concurrentLogs,
 		writers,
@@ -157,13 +189,14 @@ func appendToManyLogs(concurrentLogs, writers int, logSize, batchSize, oneStep i
 // appendsToLog - how many Append() will be called to one log
 // batchSize - how many records are written on one Append call
 // msgSize - message size in bytes
+// seqReadMode - if true, then logs are read sequentially, otherwise they are read in random order
 // logReaders - how many readers to one log work concurrently
 // queryStep -  how many records are read on one Query call
 // queriesNumber - how many Query() will be called for one log
 func appendToLogsThenQueryTest(runID, svcAddress, envVarAddress string, concurrentLogs, writersToLog, appendsToLog, batchSize, msgSize int,
-	logReaders, queryStep, queriesNumber int) *model.Test {
+	seqReadMode bool, logReaders, queryStep, queriesNumber int) *model.Test {
 	scenario := appendToLogsThenQueryScenario(svcAddress, envVarAddress, concurrentLogs, writersToLog, appendsToLog, batchSize, msgSize,
-		logReaders, queryStep, queriesNumber)
+		seqReadMode, logReaders, queryStep, queriesNumber)
 	scenario = clusterRun(runID, svcAddress, envVarAddress, scenario)
 	return &model.Test{
 		Name:     fmt.Sprintf("Append to %d logs then read it", concurrentLogs),
@@ -230,7 +263,7 @@ func clusterCleanup(runID, svcAddress, envVarAddress string) *model.Scenario {
 }
 
 func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentLogs, writersToLog, appendsToLog, batchSize, msgSize int,
-	logReaders, queryStep, queriesNumber int) *model.Scenario {
+	seqReadMode bool, logReaders, queryStep, queriesNumber int) *model.Scenario {
 	appendMetricName := appendToMetricName
 	queryMetricName := queryToMetricName
 	appendMsgsMName := appendMsgsPerSecMetricName
@@ -279,7 +312,7 @@ func appendToLogsThenQueryScenario(svcAddress, envVarAddress string, concurrentL
 									// start 'writersToLog' concurrent writers
 									writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize, appendMetricName, appendMsgsMName, appendBytesMName),
 									// start 'readers' concurrent readers
-									readConcurrently(logReaders, queryStep, queriesNumber, queryMetricName, queryMsgsMName, queryBytesMName),
+									readConcurrently(seqReadMode, logReaders, queryStep, queriesNumber, queryMetricName, queryMsgsMName, queryBytesMName),
 									// delete log
 									{
 										Name: solaris.DeleteLogName,
@@ -323,7 +356,13 @@ func writeConcurrently(writersToLog, appendsToLog, batchSize, msgSize int, toMNa
 	}
 }
 
-func readConcurrently(logReaders, queryStep, queriesNumber int, toMetricName, queryMsgsMName, queryBytesMName string) model.Scenario {
+func readConcurrently(seqReadMode bool, logReaders, queryStep, queriesNumber int, toMetricName, queryMsgsMName, queryBytesMName string) model.Scenario {
+	var readMode string
+	if seqReadMode {
+		readMode = solaris.SeqQueryMsgsRunName
+	} else {
+		readMode = solaris.RandQueryMsgsRunName
+	}
 	return model.Scenario{
 		Name: runner.RepeatRunName,
 		Config: model.ToScenarioConfig(&runner.RepeatCfg{
@@ -331,8 +370,8 @@ func readConcurrently(logReaders, queryStep, queriesNumber int, toMetricName, qu
 			Executor: runner.ParallelRunName,
 			Action: model.Scenario{
 				// start sequential queries
-				Name: solaris.QueryMsgsRunName,
-				Config: model.ToScenarioConfig(&solaris.QueryMsgsCfg{
+				Name: readMode,
+				Config: model.ToScenarioConfig(&solaris.SeqQueryMsgsCfg{
 					Step:                int64(queryStep),
 					Number:              queriesNumber,
 					TimeoutMetricName:   toMetricName,

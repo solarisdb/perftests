@@ -57,7 +57,7 @@ tests:
                             config:
                               count: 1
                               action:
-                                name: solaris.queryMsgs
+                                name: solaris.seqQueryMsgs
                                 config:
                                   step: 100
                                   number: 20934

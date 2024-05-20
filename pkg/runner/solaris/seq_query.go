@@ -14,19 +14,19 @@ import (
 )
 
 type (
-	queryMsgs struct {
-		exec *queryMsgsExecutor
+	seqQueryMsgs struct {
+		exec *seqQueryMsgsExecutor
 		name string
 	}
 
-	queryMsgsExecutor struct {
+	seqQueryMsgsExecutor struct {
 		name     string
 		Registry *runner.Registry `inject:""`
 		EnvCfg   *model.Config    `inject:""`
 		Logger   logging.Logger   `inject:""`
 	}
 
-	QueryMsgsCfg struct {
+	SeqQueryMsgsCfg struct {
 		Step                int64  `yaml:"step" json:"step"`
 		Number              int    `yaml:"number" json:"number"`
 		TimeoutMetricName   string `yaml:"timeoutMetricName,omitempty" json:"timeoutMetricName,omitempty"`
@@ -35,37 +35,37 @@ type (
 	}
 )
 
-const QueryMsgsRunName = "solaris.queryMsgs"
+const SeqQueryMsgsRunName = "solaris.seqQueryMsgs"
 const defaultQueryRecordsLimit = 100
 
-func NewQueryMsgs(exec *queryMsgsExecutor, prefix string) runner.ScenarioRunner {
-	return &queryMsgs{exec: exec, name: fmt.Sprintf("%s/%s-%d", prefix, exec.Name(), runner.GetRunnerIndex())}
+func NewSeqQueryMsgs(exec *seqQueryMsgsExecutor, prefix string) runner.ScenarioRunner {
+	return &seqQueryMsgs{exec: exec, name: fmt.Sprintf("%s/%s-%d", prefix, exec.Name(), runner.GetRunnerIndex())}
 }
 
-func NewQueryMsgsExecutor() runner.ScenarioExecutor {
-	return &queryMsgsExecutor{name: QueryMsgsRunName}
+func NewSeqQueryMsgsExecutor() runner.ScenarioExecutor {
+	return &seqQueryMsgsExecutor{name: SeqQueryMsgsRunName}
 }
 
-func (r *queryMsgsExecutor) Init(ctx context.Context) error {
+func (r *seqQueryMsgsExecutor) Init(ctx context.Context) error {
 	return r.Registry.Register(r)
 }
 
-func (r *queryMsgsExecutor) Name() string {
+func (r *seqQueryMsgsExecutor) Name() string {
 	return r.name
 }
 
-func (r *queryMsgsExecutor) New(prefix string) runner.ScenarioRunner {
-	return NewQueryMsgs(r, prefix)
+func (r *seqQueryMsgsExecutor) New(prefix string) runner.ScenarioRunner {
+	return NewSeqQueryMsgs(r, prefix)
 }
 
-func (r *queryMsgs) RunScenario(ctx context.Context, config *model.ScenarioConfig) <-chan runner.ScenarioResult {
+func (r *seqQueryMsgs) RunScenario(ctx context.Context, config *model.ScenarioConfig) <-chan runner.ScenarioResult {
 	r.exec.Logger.Debugf("Running scenario %s", r.name)
 	defer r.exec.Logger.Debugf("Scenario finished %s", r.name)
 
 	return r.run(ctx, config)
 }
 
-func (r *queryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (doneCh chan runner.ScenarioResult) {
+func (r *seqQueryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (doneCh chan runner.ScenarioResult) {
 	doneCh = make(chan runner.ScenarioResult, 1)
 	defer close(doneCh)
 
@@ -74,7 +74,7 @@ func (r *queryMsgs) run(ctx context.Context, config *model.ScenarioConfig) (done
 		return
 	}
 
-	cfg, err := model.FromScenarioConfig[QueryMsgsCfg](config)
+	cfg, err := model.FromScenarioConfig[SeqQueryMsgsCfg](config)
 	if err != nil {
 		doneCh <- runner.NewStaticScenarioResult(ctx, fmt.Errorf("failed to parse scenario config %w", err))
 		return

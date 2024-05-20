@@ -56,7 +56,7 @@ tests:
                           - name: repeat
                             config:
                               action:
-                                name: solaris.queryMsgs
+                                name: solaris.seqQueryMsgs
                                 config:
                                   step: 100
                                   number: -1

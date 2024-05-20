@@ -46,7 +46,8 @@ func Run(ctx context.Context, cfg *model.Config) error {
 		linker.Component{Value: solaris.NewAppendMsgExecutor()},
 		linker.Component{Value: solaris.NewCreateLogExecutor()},
 		linker.Component{Value: solaris.NewDeleteLogExecutor()},
-		linker.Component{Value: solaris.NewQueryMsgsExecutor()},
+		linker.Component{Value: solaris.NewSeqQueryMsgsExecutor()},
+		linker.Component{Value: solaris.NewRandQueryMsgsExecutor()},
 
 		//cluster
 		linker.Component{Value: cluster.NewConnectExecutor()},

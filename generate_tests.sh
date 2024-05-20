@@ -96,3 +96,24 @@
 # generate seq query from 10 logs 2GB size by 10 readers, batch 500 by 100KB
 ./build/perftests generateCfg auto seq_query 10 2143741824 10 500 102400
 #------------------
+
+#-------rand query--------
+# 1GB=1073741824
+# generate seq query from 1 logs 2GB size by 1 readers, batch 100 by 1KB
+./build/perftests generateCfg auto rand_query 1 2143741824 1 100 1024
+#------------------
+# generate seq query from 1 logs 2GB size by 1 readers, batch 100 by 10KB
+./build/perftests generateCfg auto rand_query 1 2143741824 1 100 10240
+#------------------
+# generate seq query from 1 logs 2GB size by 1 readers, batch 100 by 100KB
+./build/perftests generateCfg auto rand_query 1 2143741824 1 100 102400
+#------------------
+# generate seq query from 10 logs 2GB size by 10 readers, batch 500 by 1KB
+./build/perftests generateCfg auto rand_query 10 2143741824 10 500 1024
+#------------------
+# generate seq query from 10 logs 2GB size by 10 readers, batch 500 by 10KB
+./build/perftests generateCfg auto rand_query 10 2143741824 10 500 10240
+#------------------
+# generate seq query from 10 logs 2GB size by 10 readers, batch 500 by 100KB
+./build/perftests generateCfg auto rand_query 10 2143741824 10 500 102400
+#------------------
